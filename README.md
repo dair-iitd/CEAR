@@ -1,3 +1,6 @@
+# Disclaimer
+This branch contains the code that was present before submitting to EMNLP. Essentially it contains the complete re-implementation of OLPBENCH authors' baseline. Since this part of the code is not so important it has been removed from master branch.
+
 # OpenLinkPrediction
 The problem of link prediction has been extensively studied for closed knowledge graphs for quite some time. Researchers have come to with multiple techniques to solve this problem. While closed knowledge graphs are fascinating, much lesser work has been done for open knowledge graphs mostly because of lack of a proper dataset. Recently, [BGWG20] published a dataset - OLPBENCH for standardizing the task of open link prediction. A large part of this thesis is centered around this dataset and trying to improve their baseline algorithms. We try a bunch of adhoc heuristics and find that as simple as they may be - they are good enough to beat the author’s baseline. We also work on a two stage architecture which uses the pre-trained language model [DCLT19] to further improve the link prediction metrics. Not only on open knowledge graphs we find that this architecture also improves the performance of state of the art models on closed knowledge graphs.
 
