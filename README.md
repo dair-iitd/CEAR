@@ -76,7 +76,6 @@ entity id	relation id	entity id	alt. subj entity ids	alt. obj entity ids
 
 # Open Link Prediction
 This section contains instruction for training the extreme text model (original github repo: https://github.com/mwydmuch/extremeText) and then training BERT over the predictions of this extreme text model.   
-For more instruction refer to `exteremeText/e2e_xt.sh`
 
 ## Install extremetext
 ```
