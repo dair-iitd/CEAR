@@ -36,6 +36,11 @@ def add_args(parser):
     parser.add_argument('--stage1', action= 'store_true')
     parser.add_argument('--stage2', action= 'store_true')
     parser.add_argument('--use_anchor', action= 'store_true')
+    parser.add_argument('--tournament', action= 'store_true')
+    parser.add_argument('--filter_train', action= 'store_true')
+    parser.add_argument('--tournament_complete', action= 'store_true')
+    parser.add_argument('--from_scratch', action= 'store_true', help="If you do not want to load pretrained model weights")
+    parser.add_argument('--pad_to_chunksize', action= 'store_true')
     parser.add_argument('--shuffle', action= 'store_true')
     parser.add_argument('--add_missing_e2', action= 'store_true')
     parser.add_argument('--leave_alt_mentions', action= 'store_true')
@@ -60,4 +65,5 @@ def add_args(parser):
     parser.add_argument('--multiply_scores', action='store_true')
     parser.add_argument('--add_scores', action='store_true')
     parser.add_argument('--limit_tokens', type=int)
+    
     return parser

@@ -172,7 +172,7 @@ class KBCDatasetReader(DatasetReader):
             return token_str.split(':impl_')[0]
 
     def text_to_instance(  # type: ignore
-        self, x, e1, r, e2, e1_alt_mentions, e2_alt_mentions, mode, task, stage1_samples, stage1_scores, all_known
+        self, x, e1, r, e2, e1_alt_mentions, e2_alt_mentions, mode, task, stage1_samples, stage1_scores, all_known,
     ) -> Instance:  
 
         if self.hparams.stage2:
@@ -202,7 +202,8 @@ class KBCDatasetReader(DatasetReader):
                     fields["scores"] = ArrayField(np.array(scores))
                 else:
                     samples_index = stage1_samples
-                if mode != 'test':
+                # if mode != 'test':
+                if True:
                     if self.hparams.add_missing_e2:
                         if e2_index not in samples_index:
                             samples_index = samples_index[:-1]
@@ -226,13 +227,25 @@ class KBCDatasetReader(DatasetReader):
                 samples = samples_index
                 samples_index = [self.em_dict[sample] for sample in samples]
                 
-            
-            targets = []
-            for sample in samples:
-                if sample == e2:
-                    targets.append(1)
-                else:
-                    targets.append(0)
+            if self.hparams.model=='classifyCLS':
+            # if False:
+                # do not use samples; use all entities
+                # targets = [0] * len(self.entity_mentions)
+                # targets[e2_index] = 1
+                targets = [e2_index]
+            else:
+                targets = []
+                for sample in samples:
+                    if mode=="train" and self.hparams.filter_train:
+                        if sample in e2_alt_mentions:
+                            targets.append(1)
+                        else:
+                            targets.append(0)
+                    else:
+                        if sample == e2:
+                            targets.append(1)
+                        else:
+                            targets.append(0)
             
             if self.hparams.model == 'hmcq':
                 fields["target"] = ArrayField(np.array(targets), dtype=np.long)
@@ -260,7 +273,7 @@ class KBCDatasetReader(DatasetReader):
                     fields["XsampleY"] = ListField([ArrayField(np.array(sample), dtype=np.long) for sample in XsampleY])
                 fields["samples"] = ListField([ArrayField(np.array(st), dtype=np.long) for st in all_samples_tokens])
 
-            elif self.hparams.model == 'mcq':
+            elif self.hparams.model == 'mcq' or self.hparams.model == 'classifyCLS':
                 if task == 'tail': 
                     x = [101] + [10] + self._tokensD[self.clean(e1)] + [12] + self._tokensD[self.clean(r)]
                 elif task == 'head':
@@ -281,7 +294,6 @@ class KBCDatasetReader(DatasetReader):
                                 continue
                             fact_tokens.extend(self._tokensD[self.clean(fact)])
                             fact_tokens.append(10)                        
-
                     if not self.hparams.xt_results and len(x)+len(self._tokensD[clean_sample]) > 510:
                         print('Input is greater than 512!')
                         return None
@@ -289,6 +301,8 @@ class KBCDatasetReader(DatasetReader):
                     all_sample_indexs.append(range(len(x),len(x)+len(fact_tokens)+len(self._tokensD[clean_sample])))
                     x.extend(fact_tokens+self._tokensD[clean_sample])
                     x.append(102)
+                    # import ipdb
+                    # ipdb.set_trace()
 
                 # if task == 'head':
                 #     x = x + self._tokensD[self.clean(r)] + self._tokensD[self.clean(e1)] +[102]                
@@ -322,6 +336,77 @@ class KBCDatasetReader(DatasetReader):
                 fields["index"] = ListField([ArrayField(np.array(sample_indexs), dtype=np.long) for sample_indexs in all_sample_indexs])
                 if self.hparams.add_ht_embeddings:
                     fields["type"] = ArrayField(np.array(type_embedding), dtype=np.long)
+
+            elif self.hparams.model == 'qmcq':
+                if task == 'tail': 
+                    x = [101] + [10] + self._tokensD[self.clean(e1)] + [12] + self._tokensD[self.clean(r)]
+                elif task == 'head':
+                    x = [101] + [11] + self._tokensD[self.clean(r)] + [12] + self._tokensD[self.clean(e1)]
+                all_sample_indexs = []
+                target_idx = -1
+                x = x + [102]
+                ### 101 10 q1 q2 12 q3 102 e1 e2 e3 102 e4 e5 e6 102
+                # [[2,3,4,5],[7,8,9]]
+
+                ## added for qmcq
+                all_sample_indexs.append(range(2,len(x)-1))
+                ##
+                for sample_idx, sample in enumerate(samples):
+                    clean_sample = self.clean(sample)                    
+
+                    fact_tokens = []
+                    if self.factsD:
+                        facts = []
+                        if r+' '+sample in self.factsD:
+                            facts = self.factsD[r+' '+sample][:3]
+                        for fact in facts:
+                            if fact == e1:
+                                continue
+                            fact_tokens.extend(self._tokensD[self.clean(fact)])
+                            fact_tokens.append(10)                        
+                    if not self.hparams.xt_results and len(x)+len(self._tokensD[clean_sample]) > 510:
+                        print('Input is greater than 512!')
+                        return None
+                        
+                    all_sample_indexs.append(range(len(x),len(x)+len(fact_tokens)+len(self._tokensD[clean_sample])))
+                    x.extend(fact_tokens+self._tokensD[clean_sample])
+                    x.append(102)
+                    # import ipdb
+                    # ipdb.set_trace()
+
+                # if task == 'head':
+                #     x = x + self._tokensD[self.clean(r)] + self._tokensD[self.clean(e1)] +[102]                
+
+                # if task == 'tail':
+                #     x = [101] + self._tokensD[e1] + self._tokensD[r]
+                #     all_sample_indexs = []
+                #     target_idx = -1
+                    # x = x + [102]
+                #     for sample_idx, sample in enumerate(samples):
+                #         if len(x)+len(self._tokensD[sample]) > 510:
+                #             break
+                #         all_sample_indexs.append(range(len(x),len(x)+len(self._tokensD[sample])))
+                #         x.extend(self._tokensD[sample])
+                #         x.append(102)
+                # elif task == 'head':
+                #     x = [101] 
+                #     all_sample_indexs = []
+                #     target_idx = -1
+                #     for sample_idx, sample in enumerate(samples):
+                #         if len(x)+len(self._tokensD[sample]) > 510:
+                #             break
+                #         all_sample_indexs.append(range(len(x),len(x)+len(self._tokensD[sample])))
+                #         x.extend(self._tokensD[sample])
+                #         x.append(102)
+                #     x = x + self._tokensD[r] + self._tokensD[e1] + [102]
+
+                fields["X"] = ArrayField(np.array(x), dtype=np.long)                
+                fields["target"] = ArrayField(np.array(targets), dtype=np.long)
+                # (_, num_samples, max_num_tokens_sample)
+                fields["index"] = ListField([ArrayField(np.array(sample_indexs), dtype=np.long) for sample_indexs in all_sample_indexs])
+                if self.hparams.add_ht_embeddings:
+                    fields["type"] = ArrayField(np.array(type_embedding), dtype=np.long)
+
 
             elif self.hparams.model == 'lm':
                 x = []

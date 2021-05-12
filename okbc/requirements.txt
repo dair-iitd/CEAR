@@ -26,7 +26,7 @@ idna==2.10
 importlib-metadata==2.0.0
 iniconfig==1.1.1
 ipdb==0.13.4
-ipython==7.18.1
+ipython
 ipython-genutils==0.2.0
 jedi==0.17.2
 jmespath==0.10.0
@@ -81,10 +81,11 @@ tokenizers==0.8.1rc1
 toml==0.10.1
 torch==1.6.0
 tqdm==4.51.0
-traitlets==5.0.5
+traitlets
 transformers==3.0.2
 urllib3==1.25.11
 wasabi==0.8.0
 wcwidth==0.2.5
 Werkzeug==1.0.1
 zipp==3.4.0
+pickle5

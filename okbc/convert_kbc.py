@@ -76,7 +76,7 @@ tail_correct, head_correct, base_tail_correct, base_head_correct, total = 0, 0, 
 all_head_false, all_tail_false = 0, 0
 
 if args.performance:
-    all_known_e2, all_known_e1 = pickle.load(open(args.output_dir+'/all_knowns_simple_linked.pkl','rb'))
+    all_known_e2, all_known_e1 = pickle.load(open(args.output_dir+'/all_knowns.pkl','rb'))
     scoresD_tail, scoresD_head = pickle.load(open(args.output_dir+'/scores_'+args.model+'.pkl','rb'))
 
 for tuple_indx, tuple_ in enumerate(tqdm(predictions)):
@@ -190,12 +190,12 @@ if args.predictions:
     output_tail_f.close()
 
 if args.filter:
-    filter_f = open(args.output_dir+'/all_knowns_simple_linked.pkl','wb')
+    filter_f = open(args.output_dir+'/all_knowns.pkl','wb')
     print('Writing Filter to ', filter_f.name)
     pickle.dump([all_known_e2, all_known_e1], filter_f)
     
 if args.filter_val:
-    filter_f = open(args.output_dir+'/all_knowns_simple_linked.pkl','rb')
+    filter_f = open(args.output_dir+'/all_knowns.pkl','rb')
     all_known_e2_test, all_known_e1_test = pickle.load(filter_f)
 
     for (e1_name, r_name) in all_known_e2:
@@ -217,7 +217,7 @@ if args.filter_val:
         all_known_e1[(e2_name, r_name)] = all_known_e1_test[(e2_name, r_name)]
     
 
-    filter_f = open(args.output_dir+'/all_knowns_simple_linked.pkl','wb')
+    filter_f = open(args.output_dir+'/all_knowns.pkl','wb')
     print('Writing Filter to ', filter_f.name)
     pickle.dump([all_known_e2, all_known_e1], filter_f)
 

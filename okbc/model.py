@@ -22,7 +22,7 @@ from torch.optim import Adam, SGD
 
 import pytorch_lightning as pl
 # from pytorch_lightning.callbacks import EarlyStopping
-from transformers import AdamW, AutoModel
+from transformers import AdamW, AutoModel, AutoConfig
 
 import data
 
@@ -48,11 +48,24 @@ def set_seed(seed):
 
 class Model(pl.LightningModule):
 
-    def __init__(self, hparams, labels_dataloader):
+    def __init__(self, hparams, labels_dataloader, num_total_entities=None, entity_mentions = None):
         super(Model, self).__init__()
         self.hparams = hparams
+        self.num_total_entities = num_total_entities
+        self.entity_mentions = entity_mentions
+        if self.hparams.model_str=="id":
+            # surface form ablation
+            self.hparams.model_str = "bert-base-multilingual-cased"
+            hparams.model_str = "bert-base-multilingual-cased"
+            assert self.hparams.from_scratch
         if self.hparams.model_type=="bert":
-            self.bert_encoder = AutoModel.from_pretrained(hparams.model_str)
+            if hparams.from_scratch:
+                print("Loading model from scratch!!!")
+                config = AutoConfig.from_pretrained(self.hparams.model_str)
+                self.bert_encoder = AutoModel.from_config(config)
+            else:
+                self.bert_encoder = AutoModel.from_pretrained(hparams.model_str)
+
             try:
                 if self.hparams.limit_layers:
                     self.bert_encoder.encoder.layer = self.bert_encoder.encoder.layer[:self.hparams.limit_layers]
@@ -63,12 +76,15 @@ class Model(pl.LightningModule):
                 # self.transformer = AutoModel.from_pretrained(hparams.model_str).transformer.layer[self.hparams.limit_layers:self.hparams.limit_layers*2]
                 self.transformer = AutoModel.from_pretrained(hparams.model_str).transformer.layer[self.hparams.limit_layers:]
 
-
             self.transformer_pos = copy.deepcopy(self.bert_encoder.embeddings.position_embeddings).weight
             self.hidden_size = self.bert_encoder.config.hidden_size
             self.lstm_encoder = nn.LSTM(300, 150, bidirectional=True, num_layers=2, batch_first=True)
             self.word_embeddings = nn.Embedding(30000, 300)
-            self.label_mlp = nn.Sequential(nn.Linear(self.hidden_size, 100), nn.ReLU(), nn.Linear(100, 1))
+            if hparams.model == "classifyCLS":
+                assert num_total_entities
+                self.label_mlp = nn.Linear(self.hidden_size, num_total_entities, bias=False)
+            else:
+                self.label_mlp = nn.Sequential(nn.Linear(self.hidden_size, 100), nn.ReLU(), nn.Linear(100, 1))
             if self.hparams.add_ht_embeddings:
                 self.type_embedding = nn.Embedding(2, self.hidden_size)
 
@@ -97,10 +113,14 @@ class Model(pl.LightningModule):
 
         self._ce_loss = nn.CrossEntropyLoss()
         self._bce_loss = nn.BCEWithLogitsLoss()
+        # if self.hparams.model == "qmcq":
+        #     self._bce_loss = nn.BCELoss()
+
         self._margin_loss = nn.MultiMarginLoss()
         self.labels_dataloader = labels_dataloader
         self.label_embeddings = None
         self.dummy = nn.Parameter(torch.Tensor([0.8]))
+        self.cosineSimilarity = torch.nn.CosineSimilarity(dim=2)
 
     def configure_optimizers(self):
         if self.hparams.optimizer == 'adamW':
@@ -207,8 +227,8 @@ class Model(pl.LightningModule):
                 si_b_k.append(sid)
                 prev_sid = sid
             si_b.append(si_b_k+[0]*(num_token_samples-len(si_b_k)))
-            # sample_indexes.append(si_b[1:]) # remove the query
-            sample_indexes.append(si_b)
+            sample_indexes.append(si_b[1:]) # remove the query
+            # sample_indexes.append(si_b)
         try:
             sample_indexes = torch.tensor(sample_indexes).to(self.device)          
         except:
@@ -242,8 +262,9 @@ class Model(pl.LightningModule):
                 _, num_token_query = batch.query.shape
 
                 max_samples, max_indices, max_scores, all_scores, cum_chunk_size = [], [], [], [], 0
+
                 if self.hparams.use_anchor:
-                    random_anchor_id = random.randint(0,9)
+                    random_anchor_id = random.randint(0,self.hparams.chunk_size-1)
                     # random_anchor_id = 0
                     anchor_entity = batch.samples[:,random_anchor_id,:]
                     # batch.samples = torch.cat((batch.samples[:,:random_anchor_id,:], batch.samples[:,random_anchor_id+1:,:]), 1)
@@ -263,6 +284,7 @@ class Model(pl.LightningModule):
                             samples_chunk_mean = self.mean_pool(embed, sample_indexes)
                             scores = self.label_mlp(samples_chunk_mean).squeeze(-1)
                             anchor_scores = scores[:,random_anchor_id]
+
 
                         all_anchor_scores.append(anchor_scores)
                         all_scores.append(scores/torch.abs(anchor_scores).unsqueeze(1))
@@ -357,12 +379,12 @@ class Model(pl.LightningModule):
                         max_indices.append(max_chunk_indices.unsqueeze(1)+cum_chunk_size)
                         cum_chunk_size += samples_chunk.shape[1]
                         all_scores.append(scores.squeeze(-1))
+
                         # all_scores.append(scores.squeeze(-1)/max_chunk_scores.unsqueeze(-1))
 
                     max_samples = torch.cat(max_samples, dim=1)                
                     num_max_samples = max_samples.shape[1]
                     max_indices = torch.cat(max_indices, dim=1)            
-
                     # for b in range(len(batch.meta_data)):     
                     #     batch.meta_data[b]['samples'] = [batch.meta_data[b]['samples'][si] for si in range(20,30)]
                     # scores = all_scores[2].unsqueeze(-1)
@@ -410,7 +432,8 @@ class Model(pl.LightningModule):
                 # X = self.bert_encoder.embeddings.word_embeddings(tokens)
                 # for layer in self.bert_encoder.encoder.layer:
                 #     X = layer(X)[0]
-
+                # import pdb
+                # pdb.set_trace()
                 X = self.bert_encoder(tokens)[0]
 
                 if self.hparams.add_ht_embeddings:
@@ -438,10 +461,52 @@ class Model(pl.LightningModule):
                 # add stage1-scores
                 if self.hparams.add_scores:
                     scores = scores + self.scaled_add * batch.scores.unsqueeze(-1)
-                
+
+            elif self.hparams.model == 'qmcq':
+                tokens = batch.X
+                X = self.bert_encoder(tokens)[0]
+
+                if self.hparams.add_ht_embeddings:
+                    X = X + self.type_embedding(batch.type)
+
+                batch_size, num_input_tokens, embed_dim = X.shape
+                # # added for qmcq
+                # index contains query first then the targets
+                batch_size, num_samples, num_sample_tokens = batch.index.shape
+                batch.index = batch.index.reshape(batch_size, num_samples*num_sample_tokens)
+                # query|target embedings:
+                # finally, gX  --> (batch_size, num_samples, embed_dim)
+                gX = torch.gather(X, 1, batch.index.unsqueeze(-1).repeat(1,1,embed_dim))
+                gX = gX * (batch.index != 0).unsqueeze(-1).float()
+                gX = torch.sum(gX.reshape(batch_size, num_samples, num_sample_tokens, embed_dim), 2) 
+                batch.index = batch.index.reshape(batch_size, num_samples, num_sample_tokens)
+                gX = gX / ((batch.index != 0).sum(-1).unsqueeze(-1).float()+1e-4)
+
+                query_embedding = gX[:,0,:].unsqueeze(1).expand(-1,num_samples-1,-1)
+                target_embedding = gX[:,1:,:]
+                # take similarity
+                scores = self.cosineSimilarity(query_embedding,target_embedding)
+                # add stage1-scores
+                if self.hparams.add_scores:
+                    scores = scores + self.scaled_add * batch.scores.unsqueeze(-1)
+
+
+            elif self.hparams.model == 'classifyCLS':
+                tokens = batch.X
+                X = self.bert_encoder(tokens)[0]
+                X = X[:,0,:] # stores the embedding of CLS token
+                scores = self.label_mlp(X)
+                target = torch.zeros(tokens.shape[0],self.num_total_entities,device="cuda")
+                target[range(tokens.shape[0]),batch.target.squeeze()]=1
+                batch.target = target
+
+
+
             elif self.hparams.model == 'lm':
                 tokens = batch.X
                 batch_size, num_samples, num_tokens = tokens.shape
+                # import pdb
+                # pdb.set_trace()
                 bert_embeddings = self.bert_encoder(tokens.reshape(batch_size*num_samples, num_tokens))[0]
                 bert_embeddings = bert_embeddings.reshape(batch_size, num_samples, num_tokens, -1)
                 bert_embeddings = bert_embeddings[:,:,0,:] # get cls embedding
@@ -539,40 +604,56 @@ class Model(pl.LightningModule):
         output = self.forward(batch, mode=mode, batch_idx=batch_idx)
         batch_size = len(batch.meta_data)
         if self.hparams.stage2:
-            # add dummy value at end
-            gold_target = torch.cat((batch.target.float(), torch.ones_like(batch.target)[:,0:1].float()*0.1), 1)
-            output['gold'] = torch.max(gold_target, 1)[1]
-            # tail evaluation
             rank = []
-            for b in range(batch_size):
-                topk_real_indices = batch.meta_data[b]["samples"]
-                e2_filtered_mentions = batch.meta_data[b]["e2_filtered_mentions"]
-                e2_alt_mentions = batch.meta_data[b]["e2_alt_mentions"]
-                topk_scores = output["scores"][b]
-                stage1_scores = batch.meta_data[b]["stage1_scores"]
-                best_score = -20000000
-                contains_gold = False
-                for i,j in enumerate(topk_real_indices):
-                    if j in e2_alt_mentions:
-                        best_score = max(best_score,topk_scores[i].item())
-                        topk_scores[i] = -20000000
-                        contains_gold = True
+            if self.hparams.model=="classifyCLS":
+                # code for complete testing, i.e. output["scores"][b] has a shape of all entities
+                output['gold'] = torch.max(batch.target, 1)[1]
+                for b in range(batch_size):
+                    e2_filtered_mentions = batch.meta_data[b]["e2_filtered_mentions"]
+                    e2_alt_mentions = batch.meta_data[b]["e2_alt_mentions"]
+                    scores = output["scores"][b]
+                    best_score = scores[e2_alt_mentions].max()
+                    scores[e2_filtered_mentions] = -20000000 # MOST NEGATIVE VALUE
+                    scores[e2_alt_mentions] = -20000000 # MOST NEGATIVE VALUE
+                    greater = scores.gt(best_score).float()
+                    equal = scores.eq(best_score).float()
+                    rank_b = greater.sum()+1+equal.sum()//2
+                    rank.append(torch.tensor(rank_b))
 
-                for i,j in enumerate(topk_real_indices):
-                    if j in e2_filtered_mentions:
-                        topk_scores[i] = -20000000
+            else:
+                # add dummy value at end
+                gold_target = torch.cat((batch.target.float(), torch.ones_like(batch.target)[:,0:1].float()*0.1), 1)
+                output['gold'] = torch.max(gold_target, 1)[1]
+                # tail evaluation
+                for b in range(batch_size):
+                    topk_real_indices = batch.meta_data[b]["samples"]
+                    e2_filtered_mentions = batch.meta_data[b]["e2_filtered_mentions"]
+                    e2_alt_mentions = batch.meta_data[b]["e2_alt_mentions"]
+                    topk_scores = output["scores"][b]
+                    stage1_scores = batch.meta_data[b]["stage1_scores"]
+                    best_score = -20000000
+                    contains_gold = False
+                    for i,j in enumerate(topk_real_indices):
+                        if j in e2_alt_mentions:
+                            best_score = max(best_score,topk_scores[i].item())
+                            topk_scores[i] = -20000000
+                            contains_gold = True
 
-                if contains_gold:
-                    greater = topk_scores.gt(best_score).float()
-                    equal = topk_scores.eq(best_score).float()
-                    rank_b = greater.sum()+1+equal.sum()/2.0 
-                else:
-                    if stage1_scores and 'MR' in stage1_scores:
-                        rank_b = stage1_scores['MR']
-                    else: # should happen only for train set
-                        # print('Not Found MR in stage1_scores. Is this train set?')
-                        rank_b = len(topk_scores)+1
-                rank.append(torch.tensor(rank_b))
+                    for i,j in enumerate(topk_real_indices):
+                        if j in e2_filtered_mentions:
+                            topk_scores[i] = -20000000
+
+                    if contains_gold:
+                        greater = topk_scores.gt(best_score).float()
+                        equal = topk_scores.eq(best_score).float()
+                        rank_b = greater.sum()+1+equal.sum()/2.0 
+                    else:
+                        if stage1_scores and 'MR' in stage1_scores:
+                            rank_b = stage1_scores['MR']
+                        else: # should happen only for train set
+                            # print('Not Found MR in stage1_scores. Is this train set?')
+                            rank_b = len(topk_scores)+1
+                    rank.append(torch.tensor(rank_b))
 
             output['rank'] = rank
 
@@ -600,6 +681,11 @@ class Model(pl.LightningModule):
         result['hits1'] = 0
         result['hits10'] = 0
         result['hits50'] = 0
+
+        # special_list = list(range(2,35))
+        # for i in special_list:
+        #     result['hits{}'.format(i)] = 0
+
         count, correct, total = 0, 0, 0
         for output in outputs:
             correct += (output['gold'] == output['predictions']).sum().item()
@@ -613,11 +699,17 @@ class Model(pl.LightningModule):
                 result['hits1'] += rank.le(1).float().item()
                 result['hits10'] += rank.le(10).float().item()
                 result['hits50'] += rank.le(50).float().item()
+                # for i in special_list:
+                #     result['hits{}'.format(i)] += rank.le(i).float().item()
+
         result['mr'] /= float(count)
         result['mrr'] /= float(count)
         result['hits1'] /= float(count)
         result['hits10'] /= float(count)
         result['hits50'] /= float(count)
+        # for i in special_list:
+        #     result['hits{}'.format(i)] /= float(count)
+
         result['simple_accuracy'] = float(correct)/total        
                 
         # result['eval_f1'] = correct/total

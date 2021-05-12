@@ -104,7 +104,7 @@ def convert_to_namespace(d):
         setattr(params, key, d[key])
     return params
 
-def train(hparams, checkpoint_callback, train_dataloader, validation_dataloader, labels_dataloader):
+def train(hparams, checkpoint_callback, train_dataloader, validation_dataloader, labels_dataloader, num_total_entities = None, entity_mentions = None):
     logger = get_logger('train', hparams)
     if hparams.resume_checkpoint:
         checkpoint = torch.load(hparams.resume_checkpoint, map_location=torch.device('cpu'))
@@ -114,12 +114,13 @@ def train(hparams, checkpoint_callback, train_dataloader, validation_dataloader,
         hparams = convert_to_namespace(loaded_hparams_dict)
         loaded_state_dict = checkpoint['state_dict']
     
-        model = Model(hparams, labels_dataloader)
+        model = Model(hparams, labels_dataloader, num_total_entities = num_total_entities, entity_mentions = entity_mentions)
         model.load_state_dict(loaded_state_dict, strict=False)
+        print("loaded model state from checkpoint: {}".format(hparams.resume_checkpoint))
         trainer = Trainer(logger=logger, gpus=hparams.gpus)
-        trainer.test(model, test_dataloaders=test_dataloader)
+        # trainer.test(model, test_dataloaders=test_dataloader)
     else:
-        model = Model(hparams, labels_dataloader)
+        model = Model(hparams, labels_dataloader, num_total_entities = num_total_entities, entity_mentions = entity_mentions)
 
     backend = None
     if hparams.gpus > 1:
@@ -130,7 +131,6 @@ def train(hparams, checkpoint_callback, train_dataloader, validation_dataloader,
                       max_steps=hparams.max_steps, val_check_interval=hparams.val_check_interval,
                       accumulate_grad_batches=int(hparams.accumulate_grad_batches), track_grad_norm=hparams.track_grad_norm, 
                       replace_sampler_ddp=True, profiler=hparams.profiler)
-
     trainer.fit(model, train_dataloader=train_dataloader, val_dataloaders=validation_dataloader)
     # if hparams.gpus > 1 and os.environ['LOCAL_RANK'] == '0':
     #     print('LOCAL_RANK of 0 will run validation...')
@@ -139,7 +139,7 @@ def train(hparams, checkpoint_callback, train_dataloader, validation_dataloader,
     #     trainer.fit(model, train_dataloader=train_dataloader)
     return model
 
-def test(hparams, checkpoint_callback, test_dataloader, labels_dataloader, model):
+def test(hparams, checkpoint_callback, test_dataloader, labels_dataloader, model, num_total_entities = None, entity_mentions = None):
     logger = get_logger('test', hparams)
     test_fp = hparams.save+'/logs/test.txt'
     if not os.path.exists(os.path.dirname(test_fp)):
@@ -148,16 +148,21 @@ def test(hparams, checkpoint_callback, test_dataloader, labels_dataloader, model
     trainer = Trainer(logger=logger, gpus=hparams.gpus)
 
     if not model:
-        checkpoint = torch.load(hparams.checkpoint, map_location=torch.device('cpu'))
-        loaded_hparams_dict = checkpoint['hyper_parameters']
-        # override hyper-parameters with command-line passed ones
-        current_hparams_dict = vars(hparams)
-        loaded_hparams_dict = override_args(loaded_hparams_dict, current_hparams_dict, sys.argv[1:])
-        hparams = convert_to_namespace(loaded_hparams_dict)
-        loaded_state_dict = checkpoint['state_dict']
+        if hparams.xt_results:
+            model = Model(hparams, labels_dataloader, num_total_entities = num_total_entities, entity_mentions = entity_mentions)
+        else:
+            checkpoint = torch.load(hparams.checkpoint, map_location=torch.device('cpu'))
+            loaded_hparams_dict = checkpoint['hyper_parameters']
+            # override hyper-parameters with command-line passed ones
+            current_hparams_dict = vars(hparams)
+            loaded_hparams_dict = override_args(loaded_hparams_dict, current_hparams_dict, sys.argv[1:])
+            hparams = convert_to_namespace(loaded_hparams_dict)
+            loaded_state_dict = checkpoint['state_dict']
 
-        model = Model(hparams, labels_dataloader)
-        model.load_state_dict(loaded_state_dict, strict=False)
+            model = Model(hparams, labels_dataloader, num_total_entities = num_total_entities, entity_mentions = entity_mentions)
+            model.load_state_dict(loaded_state_dict, strict=False)
+
+
         
     trainer.test(model, test_dataloaders=test_dataloader)
 
@@ -167,6 +172,7 @@ def test(hparams, checkpoint_callback, test_dataloader, labels_dataloader, model
     test_f.close()
 
 def copy_and_overwrite(from_path, to_path):
+    return
     if os.path.exists(to_path):
         shutil.rmtree(to_path)
     shutil.copytree(from_path, to_path, ignore=ignore_patterns('data','models'))
@@ -218,7 +224,7 @@ def main(hparams):
     # this contains the bert tokens of all the entities, relations in files (caching)
     tokensD = pickle.load(open(hparams.data_dir+'/mapped_to_ids/entity_id_map.'+hparams.model_str+'.pkl','rb'))
     tokensD.update(pickle.load(open(hparams.data_dir+'/mapped_to_ids/relation_id_map.'+hparams.model_str+'.pkl','rb')))
-
+    newtokensD = {}
     if hparams.limit_tokens:
         for key in tokensD:
             tokensD[key] = tokensD[key][:hparams.limit_tokens]
@@ -227,7 +233,7 @@ def main(hparams):
         all_known_e2, all_known_e1 = {}, {}
     else:
         print("Loading all_known pickled data...(takes times since large)")
-        all_known_e2, all_known_e1 = pickle.load(open(os.path.join(hparams.data_dir,"all_knowns_simple_linked.pkl"),"rb"))
+        all_known_e2, all_known_e1 = pickle.load(open(os.path.join(hparams.data_dir,"all_knowns.pkl"),"rb"))
     if hparams.ckbc:
         scoresD_tail, scoresD_head = pickle.load(open(hparams.data_dir+'/scores_'+hparams.stage1_model+'.pkl','rb'))
     else:
@@ -239,6 +245,8 @@ def main(hparams):
     train_dataset_reader = KBCDatasetReader(hparams, em_map, rm_map, entity_mentions, tokensD, all_known_e2, all_known_e1, scoresD_tail, scoresD_head, 'train', hparams.max_instances, world_size)
     test_dataset_reader = KBCDatasetReader(hparams, em_map, rm_map, entity_mentions, tokensD, all_known_e2, all_known_e1, scoresD_tail, scoresD_head, 'test', hparams.max_instances, world_size)
 
+    if hparams.filter_train:
+        assert "compressed" in hparams.train
     # if os.path.exists(hparams.train+'.cached'):
     #     train_dataset = pickle.load(open(hparams.train+'.cached','rb'))
     #     train_dataset = train_dataset[:hparams.max_instances]
@@ -269,6 +277,7 @@ def main(hparams):
     if 'train' in hparams.mode:
         if hparams.max_tokens:
             train_dataloader = MultiProcessDataLoader(train_dataset_reader, hparams.train, batch_sampler=sampler, num_workers=hparams.num_workers)
+
             
             # there is some randomness in getting the length of train_dataloader
             # so the model sometimes misses that epoch has ended and it should call the validation step
@@ -283,27 +292,21 @@ def main(hparams):
 
     if hparams.stage1:  
         labels_dataloader = None
-        # if hparams.debug:
-        #     labels_dataloader = None
-        # else:
-        #     labels_dataset_reader = LabelDatasetReader(hparams, tokensD)
-        #     labels_sampler = MaxTokensBatchSampler(max_tokens=hparams.max_tokens)
-        #     labels_dataloader = MultiProcessDataLoader(labels_dataset_reader, os.path.join(hparams.data_dir,"mapped_to_ids","entity_id_map.txt"), batch_sampler=labels_sampler)        
         test_dataloader = MultiProcessDataLoader(test_dataset_reader, hparams.test, batch_size=1, num_workers=1)
     elif hparams.stage2:
         labels_dataloader = None
-        test_dataloader = MultiProcessDataLoader(test_dataset_reader, hparams.test, batch_size=128, num_workers=0)
-        # test_dataloader = None
+        test_dataloader = MultiProcessDataLoader(test_dataset_reader, hparams.test, batch_size=128, num_workers=1)
+        # test_dataloader = MultiProcessDataLoader(test_dataset_reader, hparams.test, batch_size=128, num_workers=0)
 
     model = None
     if 'train' in hparams.mode:
-        model = train(hparams, checkpoint_callback, train_dataloader, validation_dataloader, labels_dataloader)
+        model = train(hparams, checkpoint_callback, train_dataloader, validation_dataloader, labels_dataloader, len(entity_mentions), entity_mentions)
     if 'test' in hparams.mode:
-        test(hparams, checkpoint_callback, test_dataloader, labels_dataloader, model)
+        test(hparams, checkpoint_callback, test_dataloader, labels_dataloader, model, len(entity_mentions), entity_mentions)
     if 'validation' in hparams.mode:
         for checkpoint in glob.glob(hparams.save+'/*.ckpt'):
             hparams.checkpoint = checkpoint
-            test(hparams, checkpoint_callback, validation_dataloader, labels_dataloader, model)
+            test(hparams, checkpoint_callback, validation_dataloader, labels_dataloader, model, len(entity_mentions), entity_mentions)
 
 
 if __name__ == "__main__":
