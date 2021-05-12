@@ -83,7 +83,7 @@ cd extremeText
 make
 ```
 ## Open KBs
-Step 1: convert open kb data to xt format
+### Step 1: convert open kb data to xt format
 ```
 python3 helper_scripts/sample_1mil_train.py
 python3 helper_scripts/get_freq_for-relation.py
@@ -100,7 +100,7 @@ python xt_input.py --inp olpbench/validation_data_linked.txt --type head --num_f
 python xt_input.py --inp olpbench/validation_data_linked.txt --type tail --num_frequent 5
 ```
 
-Step 2: Train stage 1 extreme text model
+### Step 2: Train stage 1 extreme text model
 ```
 cd extremeText
 mkdir data/olpbench/xt_models
@@ -108,7 +108,7 @@ mkdir data/olpbench/xt_models
 ./extremetext supervised -input data/olpbench/train_data_thorough.txt.head.xt -output data/olpbench/xt_models/head_thorough_f5_d300 -lr 0.1 -thread 40 -epoch 50 -dim 300 -loss plt -wordNgrams 2
 ```
 
-Step 3: Get stage 1 predictions and convert data for stage 2 
+### Step 3: Get stage 1 predictions and convert data for stage 2 
 Test data:
 ```
 MODEL=thorough_f5_d300
@@ -189,18 +189,18 @@ python3 tokenize_pkl.py --inp open_kbc_data/mapped_to_ids/relation_id_map.txt --
 python3 tokenize_pkl.py --inp open_kbc_data/mapped_to_ids/entity_id_map.txt --model_str bert-base-uncased
 ```
 
-Step 4: Train stage 2 model
+### Step 4: Train stage 2 model
 ```
 cd okbc
 python run.py --save open_kbc_data/models --mode train --gpus 1 --epochs 5 --stage2 --negative_samples 30 --data_dir open_kbc_data --model mcq --stage1_model thorough_f5_d300 --model_str bert-base-uncased --task_type both --max_tokens 5000 --train open_kbc_data/train_data_thorough_1mil.txt
 ```
 
-Step 5: Test stage 1 predictions
+### Step 5: Test stage 1 predictions
 ```
 python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 30 --data_dir open_kbc_data --model mcq --stage1_model thorough_f5_d300 --model_str bert-base-uncased --task_type both --xt_results --test open_kbc_data/test_data.txt
 ```
 
-Step 6: Test stage 2 predictions
+### Step 6: Test stage 2 predictions
 ```
 cd okbc
 python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 30 --data_dir open_kbc_data --model mcq --stage1_model thorough_f5_d300 --model_str bert-base-uncased --task_type both --checkpoint <path to model checkpoint> --test open_kbc_data/test_data.txt
@@ -209,7 +209,7 @@ python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_sa
 # Closed Link Prediction
 This section contains instructions to train the stage 1 model - `CompleX` and `RotatE` - on different datasets - `FB15K237` and `WN18RR` - and then using the predictions from this model, we can train the stage 2 model.
 
-Step 1: Train stage 1 model
+### Step 1: Train stage 1 model
 ```
 cd KnowledgeGraphEmbedding
 mkdir models
@@ -232,7 +232,7 @@ RotatE on WN18RR
 bash run.sh train RotatE WN18RR 0 0 512 1024 500 6.0 0.5 0.00005 80000 8 -de
 ```
 
-Step 2: Generate predictions from this stage 1 model
+### Step 2: Generate predictions from this stage 1 model
 Select the appropriate command for the right combination of dataset and model:
 ComplEx on FB15K237
 ```
@@ -278,7 +278,7 @@ python3 tokenize_pkl.py --inp closed_kbc_data/data_for_stage2/$DATASET/mapped_to
 ```
 The data is ready for 2 stage architecture
 
-Step 3: Train stage 2 model
+### Step 3: Train stage 2 model
 ```
 export DATASET=FB15k-237 or WN18RR
 export MODEL=RotatE or ComplEx
@@ -287,7 +287,7 @@ python run.py --save closed_kbc_data/models/$MODEL"_"$DATASET --mode train --gpu
 ```
 This will save a model inside `closed_kbc_data/models/$MODEL_$DATASET`
 
-Step 4: Test stage 1 predictions
+### Step 4: Test stage 1 predictions
 ```
 export DATASET=FB15k-237 or WN18RR
 export MODEL=RotatE or ComplEx
@@ -295,7 +295,7 @@ cd okbc
 python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 44 --data_dir closed_kbc_data/data_for_stage2/$DATASET --model mcq --stage1_model $MODEL --model_str bert-base-cased --task_type both --ckbc --xt_results --test closed_kbc_data/data_for_stage2/$DATASET/test_data.txt --limit_tokens 10
 ```
 
-Step 5: Test stage 2 predictions
+### Step 5: Test stage 2 predictions
 ```
 export DATASET=FB15k-237 or WN18RR
 export MODEL=RotatE or ComplEx
