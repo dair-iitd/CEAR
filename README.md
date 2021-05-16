@@ -283,7 +283,7 @@ The data is ready for 2 stage architecture
 export DATASET=FB15k-237 or WN18RR
 export MODEL=RotatE or ComplEx
 cd okbc
-python run.py --save closed_kbc_data/models/$MODEL"_"$DATASET --mode train --gpus 1 --epochs 10 --stage2 --negative_samples 44 --data_dir closed_kbc_data/data_for_stage2/$DATASET --model mcq --stage1_model $MODEL --model_str bert-base-cased --task_type both --max_tokens 5000 --ckbc --limit_tokens 10
+python run.py --save closed_kbc_data/models/$MODEL"_"$DATASET --mode train --gpus 1 --epochs 10 --stage2 --negative_samples 40 --data_dir closed_kbc_data/data_for_stage2/$DATASET --model mcq --stage1_model $MODEL --model_str bert-base-cased --task_type both --max_tokens 5000 --ckbc --limit_tokens 10
 ```
 This will save a model inside `closed_kbc_data/models/$MODEL_$DATASET`
 
@@ -292,7 +292,7 @@ This will save a model inside `closed_kbc_data/models/$MODEL_$DATASET`
 export DATASET=FB15k-237 or WN18RR
 export MODEL=RotatE or ComplEx
 cd okbc
-python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 44 --data_dir closed_kbc_data/data_for_stage2/$DATASET --model mcq --stage1_model $MODEL --model_str bert-base-cased --task_type both --ckbc --xt_results --test closed_kbc_data/data_for_stage2/$DATASET/test_data.txt --limit_tokens 10
+python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 40 --data_dir closed_kbc_data/data_for_stage2/$DATASET --model mcq --stage1_model $MODEL --model_str bert-base-cased --task_type both --ckbc --xt_results --test closed_kbc_data/data_for_stage2/$DATASET/test_data.txt --limit_tokens 10
 ```
 
 ### Step 5: Test stage 2 predictions
@@ -300,7 +300,7 @@ python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_sa
 export DATASET=FB15k-237 or WN18RR
 export MODEL=RotatE or ComplEx
 cd okbc
-python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 44 --data_dir closed_kbc_data/data_for_stage2/$DATASET --model mcq --stage1_model $MODEL --model_str bert-base-cased --task_type both --ckbc --checkpoint <path to model checkpoint> --test closed_kbc_data/data_for_stage2/$DATASET/test_data.txt --limit_tokens 10
+python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 40 --data_dir closed_kbc_data/data_for_stage2/$DATASET --model mcq --stage1_model $MODEL --model_str bert-base-cased --task_type both --ckbc --checkpoint <path to model checkpoint> --test closed_kbc_data/data_for_stage2/$DATASET/test_data.txt --limit_tokens 10
 ```
 
 ## Important config variables
