@@ -76,7 +76,7 @@ entity id	relation id	entity id	alt. subj entity ids	alt. obj entity ids
 
 # Open Link Prediction
 This section contains instruction for training the extreme text model (original github repo: https://github.com/mwydmuch/extremeText) and then training BERT over the predictions of this extreme text model.   
-
+To avoid confusion, each step begins from the root of the repository.
 ## Install extremetext
 ```
 cd extremeText
@@ -197,6 +197,7 @@ python run.py --save open_kbc_data/models --mode train --gpus 1 --epochs 5 --sta
 
 ### Step 5: Test stage 1 predictions
 ```
+cd okbc
 python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 30 --data_dir open_kbc_data --model mcq --stage1_model thorough_f5_d300 --model_str bert-base-uncased --task_type both --xt_results --test open_kbc_data/test_data.txt
 ```
 Expected results: H@1: 6.4, H@10: 16.3, H@50: 26.0
@@ -209,8 +210,8 @@ python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_sa
 Expected results: H@1: 7.4, H@10: 17.9, H@50: 26.0
 
 # Closed Link Prediction
-This section contains instructions to train the stage 1 model - `CompleX` and `RotatE` - on different datasets - `FB15K237` and `WN18RR` - and then using the predictions from this model, we can train the stage 2 model.
-
+This section contains instructions to train the stage 1 model - `CompleX` and `RotatE` - on different datasets - `FB15K237` and `WN18RR` - and then using the predictions from this model, we can train the stage 2 model.  
+To avoid confusion, each step begins from the root of the repository.
 ### Step 1: Train stage 1 model
 ```
 cd KnowledgeGraphEmbedding
@@ -235,6 +236,9 @@ bash run.sh train RotatE WN18RR 0 0 512 1024 500 6.0 0.5 0.00005 80000 8 -de
 ```
 
 ### Step 2: Generate predictions from this stage 1 model
+```
+cd KnowledgeGraphEmbedding
+```
 Select the appropriate command for the right combination of dataset and model:
 ComplEx on FB15K237
 ```
