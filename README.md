@@ -199,12 +199,14 @@ python run.py --save open_kbc_data/models --mode train --gpus 1 --epochs 5 --sta
 ```
 python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 30 --data_dir open_kbc_data --model mcq --stage1_model thorough_f5_d300 --model_str bert-base-uncased --task_type both --xt_results --test open_kbc_data/test_data.txt
 ```
+Expected results: H@1: 6.4, H@10: 16.3, H@50: 26.0
 
 ### Step 6: Test stage 2 predictions
 ```
 cd okbc
 python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 30 --data_dir open_kbc_data --model mcq --stage1_model thorough_f5_d300 --model_str bert-base-uncased --task_type both --checkpoint <path to model checkpoint> --test open_kbc_data/test_data.txt
 ```
+Expected results: H@1: 7.4, H@10: 17.9, H@50: 26.0
 
 # Closed Link Prediction
 This section contains instructions to train the stage 1 model - `CompleX` and `RotatE` - on different datasets - `FB15K237` and `WN18RR` - and then using the predictions from this model, we can train the stage 2 model.
@@ -294,6 +296,11 @@ export MODEL=RotatE or ComplEx
 cd okbc
 python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 40 --data_dir closed_kbc_data/data_for_stage2/$DATASET --model mcq --stage1_model $MODEL --model_str bert-base-cased --task_type both --ckbc --xt_results --test closed_kbc_data/data_for_stage2/$DATASET/test_data.txt --limit_tokens 10
 ```
+Expected results:
+1. ComplEx FB15K237: MRR: 0.32, H@1: 23, H@10: 51.3
+2. ComplEx WN18RR: MRR: 0.47, H@1: 42.8, H@10: 55.5
+3. RotatE FB15K237: MRR: 0.34, H@1: 23.8, H@10: 53.1
+4. RotatE WN18RR: MRR: 0.47, H@1: 42.3, H@10: 57.3
 
 ### Step 5: Test stage 2 predictions
 ```
@@ -302,6 +309,11 @@ export MODEL=RotatE or ComplEx
 cd okbc
 python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 40 --data_dir closed_kbc_data/data_for_stage2/$DATASET --model mcq --stage1_model $MODEL --model_str bert-base-cased --task_type both --ckbc --checkpoint <path to model checkpoint> --test closed_kbc_data/data_for_stage2/$DATASET/test_data.txt --limit_tokens 10
 ```
+Expected results:
+1. ComplEx FB15K237: MRR: 0.48, H@1: 42.2, H@10: 57.9  
+2. ComplEx WN18RR: MRR: 0.47, H@1: 43 H@10: 54.3
+3. RotatE FB15K237: MRR: 0.45, H@1: 38.3, H@10: 56.7
+4. RotatE WN18RR: MRR: 0.49, H@1: 44.3, H@10: 56.5
 
 ## Important config variables
 1. `negative_samples` in `okbc/run.py` can be used to change the number of stage 1 samples used.
