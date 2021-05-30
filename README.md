@@ -6,7 +6,7 @@ Code in KnowledgeGraphEmbeddings has been taken from https://github.com/DeepGrap
 
 Code in extremeText has been taken from https://github.com/mwydmuch/extremeText
 
-# Installing pre-reqs
+# Installation
 ```
 git clone https://github.com/dair-iitd/CEAR.git
 cd CEAR
