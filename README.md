@@ -115,6 +115,7 @@ bash run.sh train RotatE WN18RR 0 0 512 1024 500 6.0 0.5 0.00005 80000 8 -de
 cd KnowledgeGraphEmbedding
 ```
 Select the appropriate command for the right combination of dataset and model:
+
 ComplEx on FB15K237
 ```
 bash run.sh predict_train ComplEx FB15k-237 0 0 1024 256 1000 200.0 1.0 0.001 100000 16 -de -dr -r 0.00001
