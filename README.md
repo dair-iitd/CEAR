@@ -79,7 +79,7 @@ COL 1		COL 2           COL 3		COL 4			COL 5
 entity id	relation id	entity id	alt. subj entity ids	alt. obj entity ids
 
 
-# Open Link Prediction
+# Open Link Prediction (OLPBENCH)
 This section contains instruction for training the extreme text model (original github repo: https://github.com/mwydmuch/extremeText) and then training BERT over the predictions of this extreme text model.   
 To avoid confusion, each step begins from the root of the repository.
 ## Install extremetext
@@ -87,7 +87,7 @@ To avoid confusion, each step begins from the root of the repository.
 cd extremeText
 make
 ```
-## Open KBs
+## Open KBs 
 ### Step 1: convert open kb data to xt format
 ```
 python3 helper_scripts/sample_1mil_train.py
@@ -214,7 +214,7 @@ python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_sa
 ```
 Expected results: H@1: 7.4, H@10: 17.9, H@50: 26.0
 
-# Closed Link Prediction
+# Closed Link Prediction (FB15K-237, WN18-RR)
 This section contains instructions to train the stage 1 model - `CompleX` and `RotatE` - on different datasets - `FB15K237` and `WN18RR` - and then using the predictions from this model, we can train the stage 2 model.  
 To avoid confusion, each step begins from the root of the repository.
 ### Step 1: Train stage 1 model
