@@ -3,8 +3,8 @@ Pretrained language models like BERT have shown to store factual knowledge about
 
 # Installing pre-reqs
 ```
-conda create --name env python=3.6
-conda activate env
+conda create --name cear python=3.6
+conda activate cear
 cd okbc
 pip install -r requirements.txt
 ```
