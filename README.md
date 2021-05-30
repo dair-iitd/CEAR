@@ -8,6 +8,8 @@ Code in extremeText has been taken from https://github.com/mwydmuch/extremeText
 
 # Installing pre-reqs
 ```
+git clone https://github.com/dair-iitd/CEAR.git
+cd CEAR
 conda create --name cear python=3.6
 conda activate cear
 cd cear
