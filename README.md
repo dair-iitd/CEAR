@@ -1,6 +1,11 @@
 # CEAR
 Pretrained language models like BERT have shown to store factual knowledge about the world. This knowledge can be used to augment Knowledge Bases, which are often incomplete. However, prior attempts at using BERT for task of Knowledge Base Completion (KBC) resulted in performance worse than the embedding based techniques that only use the graph structure. In this work we develop a novel model, Cross-Entity Aware Reranker (CEAR), that uses BERT to re-rank the output of existing KBC models. Unlike prior works that score each entity independently, CEAR jointly scores the top–k entities from embedding based KBC models, using cross-entity attention in BERT. CEAR establishes a new state of the art performance with 42.6 HITS@1 in FB15k-237 (32.7% relative improvement) and 5.3 pt improvement in HITS@1 for Open Link Prediction. 
 
+# References
+Code in KnowledgeGraphEmbeddings has been taken from https://github.com/DeepGraphLearning/KnowledgeGraphEmbedding
+
+Code in extremeText has been taken from https://github.com/mwydmuch/extremeText
+
 # Installing pre-reqs
 ```
 conda create --name cear python=3.6
