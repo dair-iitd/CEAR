@@ -14,11 +14,14 @@ cd cear
 pip install -r requirements.txt
 ```
 
-# Downloading the OLPBENCH dataset
+# Datasets
+## OLPBENCH dataset
 ```
 wget http://data.dws.informatik.uni-mannheim.de/olpbench/olpbench.tar.gz
 tar xzf olpbench.tar.gz
 ```
+## FB15K-237, WN18RR dataset
+Present in ```KnowledgeGraphEmbeddings/data``` folder
 
 ## Contents
 ./mapped_to_ids
@@ -77,6 +80,117 @@ The train, validation and test files contain triples as described in the publica
 
 COL 1		COL 2           COL 3		COL 4			COL 5
 entity id	relation id	entity id	alt. subj entity ids	alt. obj entity ids
+
+# Closed Link Prediction (FB15K-237, WN18-RR)
+This section contains instructions to train the stage 1 model - `CompleX` and `RotatE` - on different datasets - `FB15K237` and `WN18RR` - and then using the predictions from this model, we can train the stage 2 model.  
+To avoid confusion, each step begins from the root of the repository.
+### Step 1: Train stage 1 model
+```
+cd KnowledgeGraphEmbedding
+mkdir models
+```
+Select the appropriate command for the right combination of dataset and model:
+
+ComplEx on FB15K237
+```
+bash run.sh train ComplEx FB15k-237 0 0 1024 256 1000 200.0 1.0 0.001 100000 16 -de -dr -r 0.00001
+```
+ComplEx on WN18RR
+```
+bash run.sh train ComplEx WN18RR 0 0 512 1024 500 200.0 1.0 0.002 80000 8 -de -dr -r 0.000005
+```
+RotatE on FB15K237
+```
+bash run.sh train RotatE FB15k-237 0 0 1024 256 1000 9.0 1.0 0.00005 100000 16 -de
+```
+RotatE on WN18RR
+```
+bash run.sh train RotatE WN18RR 0 0 512 1024 500 6.0 0.5 0.00005 80000 8 -de
+```
+
+### Step 2: Generate predictions from this stage 1 model
+```
+cd KnowledgeGraphEmbedding
+```
+Select the appropriate command for the right combination of dataset and model:
+ComplEx on FB15K237
+```
+bash run.sh predict_train ComplEx FB15k-237 0 0 1024 256 1000 200.0 1.0 0.001 100000 16 -de -dr -r 0.00001
+bash run.sh predict_test ComplEx FB15k-237 0 0 1024 256 1000 200.0 1.0 0.001 100000 16 -de -dr -r 0.00001
+bash run.sh predict_val ComplEx FB15k-237 0 0 1024 256 1000 200.0 1.0 0.001 100000 16 -de -dr -r 0.00001
+```
+ComplEx on WN18RR
+```
+bash run.sh predict_train ComplEx WN18RR 0 0 512 1024 500 200.0 1.0 0.002 80000 8 -de -dr -r 0.000005
+bash run.sh predict_test ComplEx WN18RR 0 0 512 1024 500 200.0 1.0 0.002 80000 8 -de -dr -r 0.000005
+bash run.sh predict_val ComplEx WN18RR 0 0 512 1024 500 200.0 1.0 0.002 80000 8 -de -dr -r 0.000005
+```
+RotatE on FB15K237
+```
+bash run.sh predict_train RotatE FB15k-237 0 0 1024 256 1000 9.0 1.0 0.00005 100000 16 -de
+bash run.sh predict_test RotatE FB15k-237 0 0 1024 256 1000 9.0 1.0 0.00005 100000 16 -de
+bash run.sh predict_val RotatE FB15k-237 0 0 1024 256 1000 9.0 1.0 0.00005 100000 16 -de
+```
+RotatE on WN18RR
+```
+bash run.sh predict_train RotatE WN18RR 0 0 512 1024 500 6.0 0.5 0.00005 80000 8 -de
+bash run.sh predict_test RotatE WN18RR 0 0 512 1024 500 6.0 0.5 0.00005 80000 8 -de
+bash run.sh predict_val RotatE WN18RR 0 0 512 1024 500 6.0 0.5 0.00005 80000 8 -de
+```
+This will generate `output_train.pkl`, `output_test.pkl` and `output_valid.pkl` inside the appropriate model folder. We will move this data to right place and convert it into a format that is acceptable by our 2 stage architecture.
+```
+export DATASET=FB15k-237 or WN18RR
+export MODEL=RotatE or ComplEx
+cd ../cear
+mkdir closed_kbc_data/$MODEL
+mkdir closed_kbc_data/$MODEL/data
+mkdir closed_kbc_data/$MODEL/data/$DATASET
+cp ../KnowledgeGraphEmbedding/data/$DATASET/*dict closed_kbc_data/$MODEL/data/$DATASET
+mv ../KnowledgeGraphEmbedding/models/$MODEL"_"$DATASET"_"0/output_train.pkl closed_kbc_data/$MODEL/data/$DATASET/train_data.pkl
+mv ../KnowledgeGraphEmbedding/models/$MODEL"_"$DATASET"_"0/output_test.pkl closed_kbc_data/$MODEL/data/$DATASET/test_data.pkl
+mv ../KnowledgeGraphEmbedding/models/$MODEL"_"$DATASET"_"0/output_valid.pkl closed_kbc_data/$MODEL/data/$DATASET/validation_data.pkl
+python convert_kbc.py --kge_output closed_kbc_data/$MODEL/data/$DATASET/test_data.pkl --kbe_data_dir closed_kbc_data/kg-bert --kge_data_dir closed_kbc_data/$MODEL/ --dataset $DATASET --output_dir closed_kbc_data/data_for_stage2/$DATASET --output_file test_data.txt --model $MODEL --entity_map --relation_map --filter --predictions --scores
+python convert_kbc.py --kge_output closed_kbc_data/$MODEL/data/$DATASET/validation_data.pkl --kbe_data_dir closed_kbc_data/kg-bert --kge_data_dir closed_kbc_data/$MODEL/ --dataset $DATASET --output_dir closed_kbc_data/data_for_stage2/$DATASET --output_file validation_data.txt --model $MODEL --filter_val --predictions --scores_val
+python convert_kbc.py --kge_output closed_kbc_data/$MODEL/data/$DATASET/train_data.pkl --kbe_data_dir closed_kbc_data/kg-bert --kge_data_dir closed_kbc_data/$MODEL/ --dataset $DATASET --output_dir closed_kbc_data/data_for_stage2/$DATASET --output_file train_data.txt --model $MODEL --predictions
+python3 tokenize_pkl.py --inp closed_kbc_data/data_for_stage2/$DATASET/mapped_to_ids/entity_id_map.txt --model_str bert-base-cased
+python3 tokenize_pkl.py --inp closed_kbc_data/data_for_stage2/$DATASET/mapped_to_ids/relation_id_map.txt --model_str bert-base-cased
+```
+The data is ready for 2 stage architecture
+
+### Step 3: Train stage 2 model
+```
+export DATASET=FB15k-237 or WN18RR
+export MODEL=RotatE or ComplEx
+cd cear
+python run.py --save closed_kbc_data/models/$MODEL"_"$DATASET --mode train --gpus 1 --epochs 10 --stage2 --negative_samples 40 --data_dir closed_kbc_data/data_for_stage2/$DATASET --model mcq --stage1_model $MODEL --model_str bert-base-cased --task_type both --max_tokens 5000 --ckbc --limit_tokens 10
+```
+This will save a model inside `closed_kbc_data/models/$MODEL_$DATASET`
+
+### Step 4: Test stage 1 predictions
+```
+export DATASET=FB15k-237 or WN18RR
+export MODEL=RotatE or ComplEx
+cd cear
+python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 40 --data_dir closed_kbc_data/data_for_stage2/$DATASET --model mcq --stage1_model $MODEL --model_str bert-base-cased --task_type both --ckbc --xt_results --test closed_kbc_data/data_for_stage2/$DATASET/test_data.txt --limit_tokens 10
+```
+Expected results:
+1. ComplEx FB15K237: MRR: 0.32, H@1: 23, H@10: 51.3
+2. ComplEx WN18RR: MRR: 0.47, H@1: 42.8, H@10: 55.5
+3. RotatE FB15K237: MRR: 0.34, H@1: 23.8, H@10: 53.1
+4. RotatE WN18RR: MRR: 0.47, H@1: 42.3, H@10: 57.3
+
+### Step 5: Test stage 2 predictions
+```
+export DATASET=FB15k-237 or WN18RR
+export MODEL=RotatE or ComplEx
+cd cear
+python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 40 --data_dir closed_kbc_data/data_for_stage2/$DATASET --model mcq --stage1_model $MODEL --model_str bert-base-cased --task_type both --ckbc --checkpoint <path to model checkpoint> --test closed_kbc_data/data_for_stage2/$DATASET/test_data.txt --limit_tokens 10
+```
+Expected results:
+1. ComplEx FB15K237: MRR: 0.48, H@1: 42.2, H@10: 57.9  
+2. ComplEx WN18RR: MRR: 0.47, H@1: 43 H@10: 54.3
+3. RotatE FB15K237: MRR: 0.45, H@1: 38.3, H@10: 56.7
+4. RotatE WN18RR: MRR: 0.49, H@1: 44.3, H@10: 56.5
 
 
 # Open Link Prediction (OLPBENCH)
@@ -213,117 +327,6 @@ cd cear
 python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 30 --data_dir open_kbc_data --model mcq --stage1_model thorough_f5_d300 --model_str bert-base-uncased --task_type both --checkpoint <path to model checkpoint> --test open_kbc_data/test_data.txt
 ```
 Expected results: H@1: 7.4, H@10: 17.9, H@50: 26.0
-
-# Closed Link Prediction (FB15K-237, WN18-RR)
-This section contains instructions to train the stage 1 model - `CompleX` and `RotatE` - on different datasets - `FB15K237` and `WN18RR` - and then using the predictions from this model, we can train the stage 2 model.  
-To avoid confusion, each step begins from the root of the repository.
-### Step 1: Train stage 1 model
-```
-cd KnowledgeGraphEmbedding
-mkdir models
-```
-Select the appropriate command for the right combination of dataset and model:
-
-ComplEx on FB15K237
-```
-bash run.sh train ComplEx FB15k-237 0 0 1024 256 1000 200.0 1.0 0.001 100000 16 -de -dr -r 0.00001
-```
-ComplEx on WN18RR
-```
-bash run.sh train ComplEx WN18RR 0 0 512 1024 500 200.0 1.0 0.002 80000 8 -de -dr -r 0.000005
-```
-RotatE on FB15K237
-```
-bash run.sh train RotatE FB15k-237 0 0 1024 256 1000 9.0 1.0 0.00005 100000 16 -de
-```
-RotatE on WN18RR
-```
-bash run.sh train RotatE WN18RR 0 0 512 1024 500 6.0 0.5 0.00005 80000 8 -de
-```
-
-### Step 2: Generate predictions from this stage 1 model
-```
-cd KnowledgeGraphEmbedding
-```
-Select the appropriate command for the right combination of dataset and model:
-ComplEx on FB15K237
-```
-bash run.sh predict_train ComplEx FB15k-237 0 0 1024 256 1000 200.0 1.0 0.001 100000 16 -de -dr -r 0.00001
-bash run.sh predict_test ComplEx FB15k-237 0 0 1024 256 1000 200.0 1.0 0.001 100000 16 -de -dr -r 0.00001
-bash run.sh predict_val ComplEx FB15k-237 0 0 1024 256 1000 200.0 1.0 0.001 100000 16 -de -dr -r 0.00001
-```
-ComplEx on WN18RR
-```
-bash run.sh predict_train ComplEx WN18RR 0 0 512 1024 500 200.0 1.0 0.002 80000 8 -de -dr -r 0.000005
-bash run.sh predict_test ComplEx WN18RR 0 0 512 1024 500 200.0 1.0 0.002 80000 8 -de -dr -r 0.000005
-bash run.sh predict_val ComplEx WN18RR 0 0 512 1024 500 200.0 1.0 0.002 80000 8 -de -dr -r 0.000005
-```
-RotatE on FB15K237
-```
-bash run.sh predict_train RotatE FB15k-237 0 0 1024 256 1000 9.0 1.0 0.00005 100000 16 -de
-bash run.sh predict_test RotatE FB15k-237 0 0 1024 256 1000 9.0 1.0 0.00005 100000 16 -de
-bash run.sh predict_val RotatE FB15k-237 0 0 1024 256 1000 9.0 1.0 0.00005 100000 16 -de
-```
-RotatE on WN18RR
-```
-bash run.sh predict_train RotatE WN18RR 0 0 512 1024 500 6.0 0.5 0.00005 80000 8 -de
-bash run.sh predict_test RotatE WN18RR 0 0 512 1024 500 6.0 0.5 0.00005 80000 8 -de
-bash run.sh predict_val RotatE WN18RR 0 0 512 1024 500 6.0 0.5 0.00005 80000 8 -de
-```
-This will generate `output_train.pkl`, `output_test.pkl` and `output_valid.pkl` inside the appropriate model folder. We will move this data to right place and convert it into a format that is acceptable by our 2 stage architecture.
-```
-export DATASET=FB15k-237 or WN18RR
-export MODEL=RotatE or ComplEx
-cd ../cear
-mkdir closed_kbc_data/$MODEL
-mkdir closed_kbc_data/$MODEL/data
-mkdir closed_kbc_data/$MODEL/data/$DATASET
-cp ../KnowledgeGraphEmbedding/data/$DATASET/*dict closed_kbc_data/$MODEL/data/$DATASET
-mv ../KnowledgeGraphEmbedding/models/$MODEL"_"$DATASET"_"0/output_train.pkl closed_kbc_data/$MODEL/data/$DATASET/train_data.pkl
-mv ../KnowledgeGraphEmbedding/models/$MODEL"_"$DATASET"_"0/output_test.pkl closed_kbc_data/$MODEL/data/$DATASET/test_data.pkl
-mv ../KnowledgeGraphEmbedding/models/$MODEL"_"$DATASET"_"0/output_valid.pkl closed_kbc_data/$MODEL/data/$DATASET/validation_data.pkl
-python convert_kbc.py --kge_output closed_kbc_data/$MODEL/data/$DATASET/test_data.pkl --kbe_data_dir closed_kbc_data/kg-bert --kge_data_dir closed_kbc_data/$MODEL/ --dataset $DATASET --output_dir closed_kbc_data/data_for_stage2/$DATASET --output_file test_data.txt --model $MODEL --entity_map --relation_map --filter --predictions --scores
-python convert_kbc.py --kge_output closed_kbc_data/$MODEL/data/$DATASET/validation_data.pkl --kbe_data_dir closed_kbc_data/kg-bert --kge_data_dir closed_kbc_data/$MODEL/ --dataset $DATASET --output_dir closed_kbc_data/data_for_stage2/$DATASET --output_file validation_data.txt --model $MODEL --filter_val --predictions --scores_val
-python convert_kbc.py --kge_output closed_kbc_data/$MODEL/data/$DATASET/train_data.pkl --kbe_data_dir closed_kbc_data/kg-bert --kge_data_dir closed_kbc_data/$MODEL/ --dataset $DATASET --output_dir closed_kbc_data/data_for_stage2/$DATASET --output_file train_data.txt --model $MODEL --predictions
-python3 tokenize_pkl.py --inp closed_kbc_data/data_for_stage2/$DATASET/mapped_to_ids/entity_id_map.txt --model_str bert-base-cased
-python3 tokenize_pkl.py --inp closed_kbc_data/data_for_stage2/$DATASET/mapped_to_ids/relation_id_map.txt --model_str bert-base-cased
-```
-The data is ready for 2 stage architecture
-
-### Step 3: Train stage 2 model
-```
-export DATASET=FB15k-237 or WN18RR
-export MODEL=RotatE or ComplEx
-cd cear
-python run.py --save closed_kbc_data/models/$MODEL"_"$DATASET --mode train --gpus 1 --epochs 10 --stage2 --negative_samples 40 --data_dir closed_kbc_data/data_for_stage2/$DATASET --model mcq --stage1_model $MODEL --model_str bert-base-cased --task_type both --max_tokens 5000 --ckbc --limit_tokens 10
-```
-This will save a model inside `closed_kbc_data/models/$MODEL_$DATASET`
-
-### Step 4: Test stage 1 predictions
-```
-export DATASET=FB15k-237 or WN18RR
-export MODEL=RotatE or ComplEx
-cd cear
-python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 40 --data_dir closed_kbc_data/data_for_stage2/$DATASET --model mcq --stage1_model $MODEL --model_str bert-base-cased --task_type both --ckbc --xt_results --test closed_kbc_data/data_for_stage2/$DATASET/test_data.txt --limit_tokens 10
-```
-Expected results:
-1. ComplEx FB15K237: MRR: 0.32, H@1: 23, H@10: 51.3
-2. ComplEx WN18RR: MRR: 0.47, H@1: 42.8, H@10: 55.5
-3. RotatE FB15K237: MRR: 0.34, H@1: 23.8, H@10: 53.1
-4. RotatE WN18RR: MRR: 0.47, H@1: 42.3, H@10: 57.3
-
-### Step 5: Test stage 2 predictions
-```
-export DATASET=FB15k-237 or WN18RR
-export MODEL=RotatE or ComplEx
-cd cear
-python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 40 --data_dir closed_kbc_data/data_for_stage2/$DATASET --model mcq --stage1_model $MODEL --model_str bert-base-cased --task_type both --ckbc --checkpoint <path to model checkpoint> --test closed_kbc_data/data_for_stage2/$DATASET/test_data.txt --limit_tokens 10
-```
-Expected results:
-1. ComplEx FB15K237: MRR: 0.48, H@1: 42.2, H@10: 57.9  
-2. ComplEx WN18RR: MRR: 0.47, H@1: 43 H@10: 54.3
-3. RotatE FB15K237: MRR: 0.45, H@1: 38.3, H@10: 56.7
-4. RotatE WN18RR: MRR: 0.49, H@1: 44.3, H@10: 56.5
 
 ## Important config variables
 1. `negative_samples` in `cear/run.py` can be used to change the number of stage 1 samples used.
