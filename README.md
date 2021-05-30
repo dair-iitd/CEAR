@@ -5,7 +5,7 @@ Pretrained language models like BERT have shown to store factual knowledge about
 ```
 conda create --name cear python=3.6
 conda activate cear
-cd okbc
+cd cear
 pip install -r requirements.txt
 ```
 
@@ -178,7 +178,7 @@ python xt_output.py --inp $FILE --model $MODEL --type tail
 
 Move all this data to a separate folder
 ```
-cd okbc
+cd cear
 mkdir open_kbc_data
 mv ../olpbench/*stage1 open_kbc_data/ 
 cd open_kbc_data
@@ -191,20 +191,20 @@ python3 tokenize_pkl.py --inp open_kbc_data/mapped_to_ids/entity_id_map.txt --mo
 
 ### Step 4: Train stage 2 model
 ```
-cd okbc
+cd cear
 python run.py --save open_kbc_data/models --mode train --gpus 1 --epochs 5 --stage2 --negative_samples 30 --data_dir open_kbc_data --model mcq --stage1_model thorough_f5_d300 --model_str bert-base-uncased --task_type both --max_tokens 5000 --train open_kbc_data/train_data_thorough_1mil.txt
 ```
 
 ### Step 5: Test stage 1 predictions
 ```
-cd okbc
+cd cear
 python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 30 --data_dir open_kbc_data --model mcq --stage1_model thorough_f5_d300 --model_str bert-base-uncased --task_type both --xt_results --test open_kbc_data/test_data.txt
 ```
 Expected results: H@1: 6.4, H@10: 16.3, H@50: 26.0
 
 ### Step 6: Test stage 2 predictions
 ```
-cd okbc
+cd cear
 python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 30 --data_dir open_kbc_data --model mcq --stage1_model thorough_f5_d300 --model_str bert-base-uncased --task_type both --checkpoint <path to model checkpoint> --test open_kbc_data/test_data.txt
 ```
 Expected results: H@1: 7.4, H@10: 17.9, H@50: 26.0
@@ -218,6 +218,7 @@ cd KnowledgeGraphEmbedding
 mkdir models
 ```
 Select the appropriate command for the right combination of dataset and model:
+
 ComplEx on FB15K237
 ```
 bash run.sh train ComplEx FB15k-237 0 0 1024 256 1000 200.0 1.0 0.001 100000 16 -de -dr -r 0.00001
@@ -268,7 +269,7 @@ This will generate `output_train.pkl`, `output_test.pkl` and `output_valid.pkl` 
 ```
 export DATASET=FB15k-237 or WN18RR
 export MODEL=RotatE or ComplEx
-cd ../okbc
+cd ../cear
 mkdir closed_kbc_data/$MODEL
 mkdir closed_kbc_data/$MODEL/data
 mkdir closed_kbc_data/$MODEL/data/$DATASET
@@ -288,7 +289,7 @@ The data is ready for 2 stage architecture
 ```
 export DATASET=FB15k-237 or WN18RR
 export MODEL=RotatE or ComplEx
-cd okbc
+cd cear
 python run.py --save closed_kbc_data/models/$MODEL"_"$DATASET --mode train --gpus 1 --epochs 10 --stage2 --negative_samples 40 --data_dir closed_kbc_data/data_for_stage2/$DATASET --model mcq --stage1_model $MODEL --model_str bert-base-cased --task_type both --max_tokens 5000 --ckbc --limit_tokens 10
 ```
 This will save a model inside `closed_kbc_data/models/$MODEL_$DATASET`
@@ -297,7 +298,7 @@ This will save a model inside `closed_kbc_data/models/$MODEL_$DATASET`
 ```
 export DATASET=FB15k-237 or WN18RR
 export MODEL=RotatE or ComplEx
-cd okbc
+cd cear
 python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 40 --data_dir closed_kbc_data/data_for_stage2/$DATASET --model mcq --stage1_model $MODEL --model_str bert-base-cased --task_type both --ckbc --xt_results --test closed_kbc_data/data_for_stage2/$DATASET/test_data.txt --limit_tokens 10
 ```
 Expected results:
@@ -310,7 +311,7 @@ Expected results:
 ```
 export DATASET=FB15k-237 or WN18RR
 export MODEL=RotatE or ComplEx
-cd okbc
+cd cear
 python run.py --save /tmp --mode test --gpus 1 --epochs 5 --stage2 --negative_samples 40 --data_dir closed_kbc_data/data_for_stage2/$DATASET --model mcq --stage1_model $MODEL --model_str bert-base-cased --task_type both --ckbc --checkpoint <path to model checkpoint> --test closed_kbc_data/data_for_stage2/$DATASET/test_data.txt --limit_tokens 10
 ```
 Expected results:
@@ -320,10 +321,10 @@ Expected results:
 4. RotatE WN18RR: MRR: 0.49, H@1: 44.3, H@10: 56.5
 
 ## Important config variables
-1. `negative_samples` in `okbc/run.py` can be used to change the number of stage 1 samples used.
-2. `task_type` in `okbc/run.py` can be `tail|head|both` for approriate training or testing (head link prediction / tail link prediction).
-3. `from_scratch` can be used with `okbc/run.py` to train a model without pretrained-bert knowledge.
-4. 'shuffle' can be used with `okbc/run.py` to shuffle the stage 1 samples before training the stage 2 model.
+1. `negative_samples` in `cear/run.py` can be used to change the number of stage 1 samples used.
+2. `task_type` in `cear/run.py` can be `tail|head|both` for approriate training or testing (head link prediction / tail link prediction).
+3. `from_scratch` can be used with `cear/run.py` to train a model without pretrained-bert knowledge.
+4. 'shuffle' can be used with `cear/run.py` to shuffle the stage 1 samples before training the stage 2 model.
 5. `model` can be set to `lm` instead of `mcq` to train a model without cross entity attention of stage 1 samples. (In this case each sample would be fed independently to bert model)
 
 
@@ -359,7 +360,7 @@ This architecture can be used on top of any model on any dataset. To do this the
 }
 4. output_test.pkl
 5. output_val.pkl
-Next use `okbc/convert_kbc.py` as done in previous section with similar folder structures to convert this into required format for stage 2 training.
+Next use `cear/convert_kbc.py` as done in previous section with similar folder structures to convert this into required format for stage 2 training.
 
 
 
