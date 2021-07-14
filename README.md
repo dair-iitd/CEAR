@@ -12,7 +12,7 @@ git clone https://github.com/dair-iitd/CEAR.git
 cd CEAR
 conda create --name cear python=3.6
 conda activate cear
-cd cear/okbc
+cd okbc
 pip install -r requirements.txt
 ```
 
