@@ -333,7 +333,7 @@ Expected results: H@1: 7.4, H@10: 17.9, H@50: 26.0
 
 ## Important config variables
 1. `negative_samples` in `okbc/run.py` can be used to change the number of stage 1 samples used.
-2. `task_type` in `cear/run.py` can be `tail|head|both` for approriate training or testing (head link prediction / tail link prediction).
+2. `task_type` in `okbc/run.py` can be `tail|head|both` for approriate training or testing (head link prediction / tail link prediction).
 3. `from_scratch` can be used with `okbc/run.py` to train a model without pretrained-bert knowledge.
 4. 'shuffle' can be used with `okbc/run.py` to shuffle the stage 1 samples before training the stage 2 model.
 5. `model` can be set to `lm` instead of `mcq` to train a model without cross entity attention of stage 1 samples. (In this case each sample would be fed independently to bert model)
