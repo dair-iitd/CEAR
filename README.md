@@ -371,7 +371,7 @@ This architecture can be used on top of any model on any dataset. To do this the
 }
 4. output_test.pkl
 5. output_val.pkl
-Next use `cear/convert_kbc.py` as done in previous section with similar folder structures to convert this into required format for stage 2 training.
+Next use `okbc/convert_kbc.py` as done in previous section with similar folder structures to convert this into required format for stage 2 training.
 
 
 
