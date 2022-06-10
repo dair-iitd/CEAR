@@ -128,10 +128,16 @@ class KBCDatasetReader(DatasetReader):
     @overrides
     def _read(self, inp_file):
         line_no = 0
+        total_instances = 0
         if '.both_' in inp_file:
             inp_files = [inp_file.replace('.both_', '.head_'), inp_file.replace('.both_', '.tail_')]
         else:
             inp_files = [inp_file]
+
+        distances = None
+        if self.hparams.remove_closest or self.hparams.analyze_results:
+            assert os.path.exists(self.hparams.save+'/distances.pkl')
+            distances = pickle.load(open(self.hparams.save+'/distances.pkl','rb'))
 
         for inp_file in inp_files:
             self.hparams.task_type = 'head' if '.head_' in inp_file else 'tail'
@@ -141,6 +147,7 @@ class KBCDatasetReader(DatasetReader):
 
                 stage1_samples, stage1_scores = None, None
                 if self.hparams.stage1_model: stage1_samples = ast.literal_eval(fields[5])
+
                 if self.hparams.ckbc:
                     if self.hparams.task_type == 'tail':
                         stage1_scores = self.scoresD_tail.get((fields[0],fields[1],fields[2]), {})
@@ -149,13 +156,45 @@ class KBCDatasetReader(DatasetReader):
 
                 instance = None
                 if self.hparams.task_type == 'tail' or self.hparams.task_type == 'both':
-                    instance = self.text_to_instance(fields[0]+" "+fields[1],fields[0],fields[1],fields[2],fields[3].split("|||"),fields[4].split("|||"), self.mode, 'tail', stage1_samples, stage1_scores, self.all_known_e2)
-                    if instance != None: yield instance
+                    instance = self.text_to_instance(fields[0]+" "+fields[1],fields[0],fields[1],fields[2],fields[3].split("|||"),fields[4].split("|||"), self.mode, 'tail', stage1_samples, stage1_scores, self.all_known_e2, distances)
+                    if instance != None: 
+                        total_instances += 1
+                        yield instance
 
                 instance = None
                 if self.hparams.task_type == 'head' or self.hparams.task_type == 'both':
-                    instance = self.text_to_instance(fields[1]+" "+fields[2],fields[2],fields[1],fields[0],fields[4].split("|||"),fields[3].split("|||"), self.mode, 'head', stage1_samples, stage1_scores, self.all_known_e1)
-                    if instance != None: yield instance
+                    instance = self.text_to_instance(fields[1]+" "+fields[2],fields[2],fields[1],fields[0],fields[4].split("|||"),fields[3].split("|||"), self.mode, 'head', stage1_samples, stage1_scores, self.all_known_e1, distances)
+                    if instance != None: 
+                        total_instances += 1
+                        yield instance
+
+            if self.hparams.analyze_results:
+                global not_surr, surr, one2many, surr_imp, not_surr_imp, one2many_imp, one2one_imp, high_att_neighbour
+                print()
+                print(inp_file)
+                print('Number of instances where gold is surrounded by filtered entities = ', surr)
+                print('Improvements in surrounded gold = ', surr_imp)
+                if surr != 0:
+                    print('Percentage improvement = ', (surr_imp*1.0/surr))
+                print('Number of instances where gold is not surrounded by filtered entities = ', not_surr)
+                print('Improvements in not surrounded gold = ', not_surr_imp)
+                if not_surr != 0:
+                    print('Percentage improvement = ', (not_surr_imp*1.0/not_surr))
+                print('Number of one2many queries = ', one2many)
+                print('Improvements in one2many queries = ', one2many_imp)
+                print('Improvements where high attention entity is a filtered mention = ', high_att_neighbour)
+                if one2many != 0:
+                    print('Percentage improvement = ', one2many_imp*1.0/one2many)
+                print('Number of one2one queries = ', (total_instances-one2many))
+                print('Improvements in one2one queries = ', one2one_imp)
+                if total_instances-one2many != 0:
+                    print('Percentage improvement = ', one2one_imp*1.0/(total_instances-one2many))
+                print('Total number of examples = ', total_instances)
+                # surr, not_surr, one2many, one2many_imp, one2one_imp, total_instances, high_att_neighbour = 0, 0, 0, 0, 0, 0, 0
+
+        if self.hparams.analyze_results:
+            import sys
+            sys.exit(1)
 
     def ft_indices(self, text):
         all_indices, all_subwords = [], []
@@ -171,8 +210,18 @@ class KBCDatasetReader(DatasetReader):
         else:
             return token_str.split(':impl_')[0]
 
+    global surr, not_surr, one2many, surr_imp, not_surr_imp, one2many_imp, one2one_imp, high_att_neighbour
+    surr = 0
+    not_surr = 0
+    one2many = 0
+    surr_imp = 0
+    not_surr_imp = 0
+    one2many_imp = 0
+    one2one_imp = 0
+    high_att_neighbour = 0
+
     def text_to_instance(  # type: ignore
-        self, x, e1, r, e2, e1_alt_mentions, e2_alt_mentions, mode, task, stage1_samples, stage1_scores, all_known,
+        self, x, e1, r, e2, e1_alt_mentions, e2_alt_mentions, mode, task, stage1_samples, stage1_scores, all_known, distances
     ) -> Instance:  
 
         if self.hparams.stage2:
@@ -182,8 +231,26 @@ class KBCDatasetReader(DatasetReader):
             fields: Dict[str, Field] = {}    
             y = e2
             e2_index = self.em_dict[e2]
+
             if stage1_samples:
+                if self.hparams.no_filter:
+                    # st1_str = str(len(stage1_samples))+' '
+                    non_filtered_samples = []
+                    filtered_entities = all_known.get((e1,r),[])
+                    for sample in stage1_samples:
+                        if sample[0] not in filtered_entities:
+                            non_filtered_samples.append(sample)
+                    if len(non_filtered_samples) == 0:
+                        if mode == 'train':
+                            return None
+                        else:
+                            non_filtered_samples = stage1_samples
+                    stage1_samples = non_filtered_samples
+                    # st1_str += str(len(stage1_samples))
+                    # print(st1_str)
+
                 stage1_samples = stage1_samples[:self.hparams.negative_samples]
+
                 if self.hparams.round_robin:
                     # Input: [1,2,3,4,5,6,7,8,9,10], chunks of size 2, #chunks = 5
                     # Output: [1,6,2,7,3,8,4,9,5,10]
@@ -203,13 +270,11 @@ class KBCDatasetReader(DatasetReader):
                 else:
                     samples_index = stage1_samples
                 # if mode != 'test':
-                if True:
-                    if self.hparams.add_missing_e2:
-                        if e2_index not in samples_index:
-                            samples_index = samples_index[:-1]
-                            samples_index = samples_index+[e2_index]
-                    if self.hparams.shuffle:
-                        random.shuffle(samples_index)                
+                # if True:
+                if self.hparams.add_missing_e2:
+                    if e2_index not in samples_index:
+                        samples_index = samples_index[:-1]
+                        samples_index = samples_index+[e2_index]
             else:
                 if self.key_index > len(self.random_indexes):
                     random.shuffle(self.random_indexes)
@@ -226,6 +291,46 @@ class KBCDatasetReader(DatasetReader):
             else:
                 samples = samples_index
                 samples_index = [self.em_dict[sample] for sample in samples]
+
+            if self.hparams.shuffle:
+                temp = list(zip(samples_index, samples))
+                random.shuffle(temp)
+                samples_index, samples = zip(*temp)
+            elif self.hparams.decreasing_order:
+                samples_index = samples_index[::-1]
+                samples = samples[::-1]
+
+            # if e2 in samples:
+            #     samples[samples.index(e2)] = 'Tonga'
+            #     samples_index[samples_index.index(e2_index)] = self.em_dict['Tonga']
+
+            if self.hparams.remove_closest:
+                assert distances != None
+                if (e1, r, e2) in distances:
+                    entity_distances, loaded_sample_indices = distances[(e1, r, e2)][0]
+                    samples_index = copy.copy(loaded_sample_indices)
+                    samples = [self.entity_mentions[sample_index] for sample_index in samples_index]
+
+                    # Closest
+                    closest_indices = entity_distances.argsort()[-self.hparams.remove_closest-1:][::-1]
+                    assert e2_index in samples_index
+                    assert closest_indices[0] == samples_index.index(e2_index) 
+                    closest_indices = closest_indices[1:] # remove itself
+
+                    # # Farthest
+                    # closest_indices = entity_distances.argsort()[:self.hparams.remove_closest]
+
+                    # Common for both
+                    closest_indices.sort()
+                    closest_indices = closest_indices[::-1]
+
+                    # Remove itself
+                    closest_indices = entity_distances.argsort()[-1:]
+
+                    for index in closest_indices:
+                        del samples[index]
+                        del samples_index[index]
+
                 
             if self.hparams.model=='classifyCLS':
             # if False:
@@ -235,9 +340,10 @@ class KBCDatasetReader(DatasetReader):
                 targets = [e2_index]
             else:
                 targets = []
+                e2_filtered_mentions = all_known.get((e1,r),[])
                 for sample in samples:
                     if mode=="train" and self.hparams.filter_train:
-                        if sample in e2_alt_mentions:
+                        if sample in e2_filtered_mentions:
                             targets.append(1)
                         else:
                             targets.append(0)
@@ -274,13 +380,17 @@ class KBCDatasetReader(DatasetReader):
                 fields["samples"] = ListField([ArrayField(np.array(st), dtype=np.long) for st in all_samples_tokens])
 
             elif self.hparams.model == 'mcq' or self.hparams.model == 'classifyCLS':
+                x_str = ''
                 if task == 'tail': 
                     x = [101] + [10] + self._tokensD[self.clean(e1)] + [12] + self._tokensD[self.clean(r)]
+                    x_str = e1+' ; '+r 
                 elif task == 'head':
                     x = [101] + [11] + self._tokensD[self.clean(r)] + [12] + self._tokensD[self.clean(e1)]
+                    x_str = r+' ; '+e1
                 all_sample_indexs = []
                 target_idx = -1
                 x = x + [102]
+
                 for sample_idx, sample in enumerate(samples):
                     clean_sample = self.clean(sample)                    
 
@@ -294,15 +404,14 @@ class KBCDatasetReader(DatasetReader):
                                 continue
                             fact_tokens.extend(self._tokensD[self.clean(fact)])
                             fact_tokens.append(10)                        
-                    if not self.hparams.xt_results and len(x)+len(self._tokensD[clean_sample]) > 510:
+                    if not self.hparams.xt_results and len(x)+len(self._tokensD[clean_sample]) > 512:
                         print('Input is greater than 512!')
                         return None
                         
                     all_sample_indexs.append(range(len(x),len(x)+len(fact_tokens)+len(self._tokensD[clean_sample])))
+                    x_str += ' [SEP] '+clean_sample
                     x.extend(fact_tokens+self._tokensD[clean_sample])
                     x.append(102)
-                    # import ipdb
-                    # ipdb.set_trace()
 
                 # if task == 'head':
                 #     x = x + self._tokensD[self.clean(r)] + self._tokensD[self.clean(e1)] +[102]                
@@ -371,8 +480,6 @@ class KBCDatasetReader(DatasetReader):
                     all_sample_indexs.append(range(len(x),len(x)+len(fact_tokens)+len(self._tokensD[clean_sample])))
                     x.extend(fact_tokens+self._tokensD[clean_sample])
                     x.append(102)
-                    # import ipdb
-                    # ipdb.set_trace()
 
                 # if task == 'head':
                 #     x = x + self._tokensD[self.clean(r)] + self._tokensD[self.clean(e1)] +[102]                
@@ -413,8 +520,13 @@ class KBCDatasetReader(DatasetReader):
                 for sample_idx, sample in enumerate(samples):
                     if task == 'tail':
                         xs = [101] + self._tokensD[self.clean(e1)] + self._tokensD[self.clean(r)] + self._tokensD[self.clean(sample)] + [102]
+                        if sample_idx == 0:
+                            x_str = e1+' [SEP] '+r
                     elif task == 'head':
                         xs = [101] + self._tokensD[self.clean(sample)] + self._tokensD[self.clean(r)] + self._tokensD[self.clean(e1)] + [102]
+                        if sample_idx == 0:
+                            x_str = r+' [SEP] '+e1
+                    x_str += ' [SEP] '+sample 
 
                     if len(xs)+len(self._tokensD[self.clean(sample)]) > 510:
                         return None
@@ -498,10 +610,78 @@ class KBCDatasetReader(DatasetReader):
         else:
             e2_filtered_mentions, e2_alt_mentions_map = [], []
 
+        filter_array = []
+
+        for si in samples_index:
+            if si in e2_filtered_mentions:
+                filter_array.append(1)
+            else:
+                filter_array.append(0)
+
+        if self.hparams.analyze_results:
+            if (e1,r,e2) in distances and distances[(e1,r,e2)][1] != 1. and distances[(e1,r,e2)][2].item() == 1.:
+                improved = True
+            else:
+                improved = False
+
+            global not_surr, surr, surr_imp, not_surr_imp, one2many_imp, one2one_imp, one2many, high_att_neighbour
+            if e2_index in samples_index:
+                si_e2_index = samples_index.index(e2_index)
+                surr_filter = False
+                if si_e2_index > 0 and filter_array[si_e2_index-1] == 1:
+                    surr_filter = True
+                if si_e2_index < len(filter_array)-1 and filter_array[si_e2_index+1] == 1:
+                    surr_filter = True
+                if si_e2_index == len(filter_array)-1:
+                    surr_filter = True
+    
+                filtered_score = None
+                for fi, fv in enumerate(filter_array):
+                    if fv == 1:
+                        filtered_score = stage1_samples[fi][1]
+                e2_score = stage1_samples[si_e2_index][1]
+
+                if surr_filter:
+                    surr += 1
+                    if improved and e2_score == filtered_score:
+                    # if distances[(e1,r,e2)][2].item() == 1.:
+                        surr_imp += 1
+                else:
+                    not_surr += 1
+                    if improved:
+                    # if distances[(e1,r,e2)][2].item() == 1.:
+                        not_surr_imp += 1
+
+            if len(e2_filtered_mentions) > 0:
+                one2many += 1
+                if improved:
+                    e2_filtered_mentions_str = all_known.get((e1,r),[])
+                    # if len(e2_filtered_mentions_str) < 5:
+                    #     print(e2_filtered_mentions_str)
+                    #     print(x_str)
+                    #     ipdb.set_trace()
+                    entity_distances, loaded_sample_indices = distances[(e1, r, e2)][0]
+                    closest_entity_index = entity_distances.argsort()[::-1][1:][0]
+                    if loaded_sample_indices[closest_entity_index] in e2_filtered_mentions:
+                        high_att_neighbour += 1
+                    one2many_imp += 1
+            else:
+                if improved:
+                    one2one_imp += 1
+
+                # if surr_filter == False:
+                #     not_surr += 1
+                # else:
+                #     if 2 not in filter_array:
+                #         ipdb.set_trace()
+                #     print(filter_array)
+                #     print(not_surr)
+
         if self.mode != 'train':
-            fields["meta_data"] = MetadataField({"X": x, "tuple": (e1, r, e2), "Y": y, "e2_alt_mentions": e2_alt_mentions_map, "e2_filtered_mentions": e2_filtered_mentions, "samples": samples_index, "stage1_scores": stage1_scores})
+            fields["meta_data"] = MetadataField({"X": x_str, "tuple": (e1, r, e2), "Y": e2_index, "e2_alt_mentions": e2_alt_mentions_map, "e2_filtered_mentions": e2_filtered_mentions, "samples": samples_index, "stage1_scores": stage1_scores})
 
         return Instance(fields)
+
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""

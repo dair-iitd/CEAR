@@ -32,8 +32,8 @@ UNK_NAME = "unknown"
 args = parser.parse_args()
 os.system("mkdir -p {}".format(args.output_dir))
 # args.kge_output = os.path.join(args.kge_output,'models',args.kge_output)
-args.kge_data_dir = os.path.join(args.kge_data_dir,'data',args.dataset)
-args.kbe_data_dir = os.path.join(args.kbe_data_dir,'data',args.dataset)
+# args.kge_data_dir = os.path.join(args.kge_data_dir,'data',args.dataset)
+# args.kbe_data_dir = os.path.join(args.kbe_data_dir,'data',args.dataset)
 # args.output_dir = os.path.join(olp_dir_path,args.dataset)
 
 # if args.filter or args.scores:
@@ -126,6 +126,8 @@ for tuple_indx, tuple_ in enumerate(tqdm(predictions)):
             all_known_e2[(e1_name, r_name)] = list(set(all_known_e2[(e1_name, r_name)]))
         else:    
             all_known_e2[(e1_name, r_name)] = tail_bias
+        # if (e2_name, r_name) == ('Pontefract', 'location location contains'):
+        #     ipdb.set_trace()
         if (e2_name, r_name) in all_known_e1:
             all_known_e1[(e2_name, r_name)].extend(head_bias)
             all_known_e1[(e2_name, r_name)] = list(set(all_known_e1[(e2_name, r_name)]))

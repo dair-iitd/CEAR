@@ -155,6 +155,11 @@ def test(hparams, checkpoint_callback, test_dataloader, labels_dataloader, model
             loaded_hparams_dict = checkpoint['hyper_parameters']
             # override hyper-parameters with command-line passed ones
             current_hparams_dict = vars(hparams)
+            loaded_hparams_dict['compute_entity_distance'] = None
+            loaded_hparams_dict['remove_closest'] = None
+            loaded_hparams_dict['decreasing_order'] = None
+            loaded_hparams_dict['analyze_results'] = None
+
             loaded_hparams_dict = override_args(loaded_hparams_dict, current_hparams_dict, sys.argv[1:])
             hparams = convert_to_namespace(loaded_hparams_dict)
             loaded_state_dict = checkpoint['state_dict']
@@ -234,19 +239,20 @@ def main(hparams):
     else:
         print("Loading all_known pickled data...(takes times since large)")
         all_known_e2, all_known_e1 = pickle.load(open(os.path.join(hparams.data_dir,"all_knowns.pkl"),"rb"))
+
     if hparams.ckbc:
         scoresD_tail, scoresD_head = pickle.load(open(hparams.data_dir+'/scores_'+hparams.stage1_model+'.pkl','rb'))
     else:
         scoresD_tail, scoresD_head = {}, {}
 
     if hparams.debug:
-        hparams.max_instances = 100
+        hparams.max_instances = 500
     world_size = 1 if hparams.gpus == 0 else hparams.gpus
     train_dataset_reader = KBCDatasetReader(hparams, em_map, rm_map, entity_mentions, tokensD, all_known_e2, all_known_e1, scoresD_tail, scoresD_head, 'train', hparams.max_instances, world_size)
     test_dataset_reader = KBCDatasetReader(hparams, em_map, rm_map, entity_mentions, tokensD, all_known_e2, all_known_e1, scoresD_tail, scoresD_head, 'test', hparams.max_instances, world_size)
 
-    if hparams.filter_train:
-        assert "compressed" in hparams.train
+    # if hparams.filter_train:
+    #     assert "compressed" in hparams.train
     # if os.path.exists(hparams.train+'.cached'):
     #     train_dataset = pickle.load(open(hparams.train+'.cached','rb'))
     #     train_dataset = train_dataset[:hparams.max_instances]
@@ -273,10 +279,14 @@ def main(hparams):
     # validation_dataset = AllennlpLazyDataset(dataset_reader, hparams.valid)
 
     sampler = MaxTokensBatchSampler(max_tokens=hparams.max_tokens)
-    num_workers = hparams.num_workers
+    if hparams.debug or hparams.analyze_results:
+        num_workers = 0
+    else:
+        num_workers = hparams.num_workers
+
     if 'train' in hparams.mode:
         if hparams.max_tokens:
-            train_dataloader = MultiProcessDataLoader(train_dataset_reader, hparams.train, batch_sampler=sampler, num_workers=hparams.num_workers)
+            train_dataloader = MultiProcessDataLoader(train_dataset_reader, hparams.train, batch_sampler=sampler, num_workers=num_workers)
 
             
             # there is some randomness in getting the length of train_dataloader
@@ -285,7 +295,7 @@ def main(hparams):
             if len(train_dataloader) > 20:
                 hparams.val_check_interval = len(train_dataloader)-20
         elif hparams.batch_size:
-            train_dataloader = MultiProcessDataLoader(train_dataset_reader, hparams.train, batch_size=hparams.batch_size, num_workers=hparams.num_workers)
+            train_dataloader = MultiProcessDataLoader(train_dataset_reader, hparams.train, batch_size=hparams.batch_size, num_workers=num_workers)
 
         validation_dataloader = MultiProcessDataLoader(test_dataset_reader, hparams.valid, batch_size=128, num_workers=1)
 
@@ -295,8 +305,11 @@ def main(hparams):
         test_dataloader = MultiProcessDataLoader(test_dataset_reader, hparams.test, batch_size=1, num_workers=1)
     elif hparams.stage2:
         labels_dataloader = None
-        test_dataloader = MultiProcessDataLoader(test_dataset_reader, hparams.test, batch_size=128, num_workers=1)
-        # test_dataloader = MultiProcessDataLoader(test_dataset_reader, hparams.test, batch_size=128, num_workers=0)
+        if hparams.debug or hparams.analyze_results:
+            # no parallelization to enable ipdb.set_trace
+            test_dataloader = MultiProcessDataLoader(test_dataset_reader, hparams.test, batch_size=128, num_workers=0)
+        else:
+            test_dataloader = MultiProcessDataLoader(test_dataset_reader, hparams.test, batch_size=128, num_workers=1)
 
     model = None
     if 'train' in hparams.mode:

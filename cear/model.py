@@ -229,10 +229,7 @@ class Model(pl.LightningModule):
             si_b.append(si_b_k+[0]*(num_token_samples-len(si_b_k)))
             sample_indexes.append(si_b[1:]) # remove the query
             # sample_indexes.append(si_b)
-        try:
-            sample_indexes = torch.tensor(sample_indexes).to(self.device)          
-        except:
-            ipdb.set_trace()
+        sample_indexes = torch.tensor(sample_indexes).to(self.device)          
         
         return embed, sample_indexes
 
@@ -405,7 +402,6 @@ class Model(pl.LightningModule):
                     # scores = -200000*torch.ones([batch_size, total_samples]).to(self.device)
                     # for b in range(batch_size):
                     #     for c, m in enumerate(max_indices[b]):
-                    #         # ipdb.set_trace()
                     #         scores[b, m] = max_scores[b,c,0]
                     #         # if max_scores[b,c,0] > 0:
                     #         #     scores[b, m] += max_scores[b,c,0]                        
@@ -457,6 +453,22 @@ class Model(pl.LightningModule):
                 # donot consider padding while taking sum
                 gX = gX / ((batch.index != 0).sum(-1).unsqueeze(-1).float()+1e-4)
 
+                if self.hparams.compute_entity_distance:
+                    gX_norm = gX / torch.norm(gX, 2, 2).unsqueeze(2)
+                    entity_distances = torch.bmm(gX_norm, gX_norm.transpose(1,2))
+                    for b in range(len(entity_distances)):
+                        meta_data_b = batch.meta_data[b]
+                        samples, gt_sample = meta_data_b['samples'], meta_data_b['Y']
+                        if gt_sample in samples:
+                            gt_index = samples.index(gt_sample)
+                            batch.meta_data[b]['entity_distance'] = \
+                            (entity_distances[b][gt_index][:len(samples)].cpu().numpy(), samples)
+
+                            assert len(samples) == len(entity_distances[b][gt_index][:len(samples)])
+                            assert round(entity_distances[b][gt_index][gt_index].item(),3) == 1.
+                        else:
+                            continue
+
                 scores = self.label_mlp(gX)
                 # add stage1-scores
                 if self.hparams.add_scores:
@@ -490,7 +502,6 @@ class Model(pl.LightningModule):
                 if self.hparams.add_scores:
                     scores = scores + self.scaled_add * batch.scores.unsqueeze(-1)
 
-
             elif self.hparams.model == 'classifyCLS':
                 tokens = batch.X
                 X = self.bert_encoder(tokens)[0]
@@ -499,8 +510,6 @@ class Model(pl.LightningModule):
                 target = torch.zeros(tokens.shape[0],self.num_total_entities,device="cuda")
                 target[range(tokens.shape[0]),batch.target.squeeze()]=1
                 batch.target = target
-
-
 
             elif self.hparams.model == 'lm':
                 tokens = batch.X
@@ -576,6 +585,7 @@ class Model(pl.LightningModule):
                 # (batch_size, 1)
                 output_dict['predictions'] = torch.max(scores, 1)[1]
                 output_dict['scores'] = scores
+        
         return output_dict
 
 
@@ -633,6 +643,20 @@ class Model(pl.LightningModule):
                     stage1_scores = batch.meta_data[b]["stage1_scores"]
                     best_score = -20000000
                     contains_gold = False
+
+                    filtered_entity = None
+                    for entity in topk_real_indices:
+                        if entity in e2_alt_mentions or entity not in e2_filtered_mentions:
+                            continue
+                        filtered_entity = entity
+                        break
+                    if filtered_entity:
+                        filtered_entity_score = topk_scores[topk_real_indices.index(filtered_entity)]
+                        for ti in range(len(topk_scores)):
+                            if topk_real_indices[ti] in e2_alt_mentions and topk_scores[ti] == filtered_entity_score:
+                            # if topk_real_indices[ti] in e2_alt_mentions:
+                                topk_scores[ti] += 100000
+
                     for i,j in enumerate(topk_real_indices):
                         if j in e2_alt_mentions:
                             best_score = max(best_score,topk_scores[i].item())
@@ -647,13 +671,46 @@ class Model(pl.LightningModule):
                         greater = topk_scores.gt(best_score).float()
                         equal = topk_scores.eq(best_score).float()
                         rank_b = greater.sum()+1+equal.sum()/2.0 
+                        # rank_b = len(topk_scores)+1
                     else:
                         if stage1_scores and 'MR' in stage1_scores:
                             rank_b = stage1_scores['MR']
                         else: # should happen only for train set
                             # print('Not Found MR in stage1_scores. Is this train set?')
                             rank_b = len(topk_scores)+1
+
+                    batch.meta_data[b]['stage2_rank'] = rank_b
                     rank.append(torch.tensor(rank_b))
+                    
+                    if not stage1_scores: # OLPBench 
+                        topk_scores = batch.scores[b]
+                        for i,j in enumerate(topk_real_indices):
+                            if j in e2_alt_mentions:
+                                best_score = max(best_score,topk_scores[i].item())
+                                topk_scores[i] = -20000000
+                                contains_gold = True
+
+                        for i,j in enumerate(topk_real_indices):
+                            if j in e2_filtered_mentions:
+                                topk_scores[i] = -20000000
+
+                        if contains_gold:
+                            greater = topk_scores.gt(best_score).float()
+                            equal = topk_scores.eq(best_score).float()
+                            rank_b = greater.sum()+1+equal.sum()/2.0 
+                            # rank_b = len(topk_scores)+1
+                        else:
+                            if stage1_scores and 'MR' in stage1_scores:
+                                rank_b = stage1_scores['MR']
+                            else: # should happen only for train set
+                                # print('Not Found MR in stage1_scores. Is this train set?')
+                                rank_b = len(topk_scores)+1
+
+                        batch.meta_data[b]['stage1_rank'] = rank_b
+                    else:
+                        batch.meta_data[b]['stage1_rank'] = stage1_scores['MR']
+
+                    
 
             output['rank'] = rank
 
@@ -672,6 +729,7 @@ class Model(pl.LightningModule):
                 rank.append(greater.sum()+1+equal.sum()/2.0)
             output['rank'] = rank
 
+        output['meta_data'] = batch.meta_data
         return output
 
     def evaluation_end(self, outputs, mode):
@@ -685,6 +743,16 @@ class Model(pl.LightningModule):
         # special_list = list(range(2,35))
         # for i in special_list:
         #     result['hits{}'.format(i)] = 0
+        if self.hparams.compute_entity_distance:
+            distances = {}
+            for output in outputs:
+                for b in range(len(output['meta_data'])):
+                    if 'entity_distance' in output['meta_data'][b]:
+                        distances[output['meta_data'][b]['tuple']] = (output['meta_data'][b]['entity_distance'], 
+                                                                    output['meta_data'][b]['stage1_rank'], 
+                                                                    output['meta_data'][b]['stage2_rank'])
+                        assert len(output['meta_data'][b]['entity_distance'][0]) == len(output['meta_data'][b]['entity_distance'][1]), ipdb.set_trace()
+            pickle.dump(distances, open(self.hparams.save+'/distances.pkl','wb'))
 
         count, correct, total = 0, 0, 0
         for output in outputs:
