@@ -3,8 +3,10 @@ import pickle
 import os
 import json
 import ast
+import sys
 
-dir_ = 'open_kbc_data/simkgc_en/'
+dir_ = sys.argv[1]
+# 'open_kbc_data/simkgc_en/'
 
 files = {'test': 'test_{}.json', 'train': 'train_{}.json', 'valid': 'val_{}.json'}
 
