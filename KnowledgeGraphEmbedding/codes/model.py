@@ -397,6 +397,7 @@ class KGEModel(nn.Module):
                         # (score of all entities)
                         score = model((positive_sample, negative_sample), mode)
                         
+
                         if args.output_file:
                             sorted_confidences, sorted_indices = torch.sort(score, dim=1, descending=True)
                             positive_sample_np = positive_sample.cpu().numpy()
@@ -438,7 +439,6 @@ class KGEModel(nn.Module):
                                 #     correct += 1
                                 # if mode == 'tail-batch' and all_facts[0][0] == positive_sample[i][2]:
                                 #     correct += 1
-                                
 
                         score += filter_bias
                         #Explicitly sort all the entities to ensure that there is no test exposure bias
