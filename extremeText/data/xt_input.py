@@ -7,11 +7,13 @@ import regex as re
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--inp_fp')
+parser.add_argument('--data_dir')
 parser.add_argument('--type') # head, tail
 parser.add_argument('--num_frequent', type=int)
 args = parser.parse_args()
+data_dir = args.data_dir
 
-inp_fp = args.inp_fp
+inp_fp = data_dir+'/'+args.inp_fp
 x = open(inp_fp,'r').readlines()
 
 out = open(inp_fp+'.'+args.type+'.xt','w')
@@ -27,12 +29,12 @@ def read_mentions(path):
         mapp[line[0]] = len(mapp)
     return mentions,mapp
 
-entityList, entityD = read_mentions('olpbench/mapped_to_ids/entity_id_map.txt')
+entityList, entityD = read_mentions(data_dir+'/mapped_to_ids/entity_id_map.txt')
 entityList = dict([(i,el) for i,el in enumerate(entityList)]) # conver to dictionary for faster search operation
 
 if args.num_frequent:
     print('Loading Frequent entities list...')
-    frequentD = pickle.load(open('olpbench/r-freq_top100_thorough_'+args.type+'.pkl','rb'))    
+    frequentD = pickle.load(open(data_dir+'/r-freq_top100_thorough_'+args.type+'.pkl','rb'))    
 
 line_num = 0
 hits1 = 0

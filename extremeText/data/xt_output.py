@@ -8,6 +8,7 @@ import regex as re
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--inp') 
+parser.add_argument('--data_dir') 
 parser.add_argument('--model')
 parser.add_argument('--type')
 parser.add_argument('--parallel', action='store_true') 
@@ -24,7 +25,7 @@ def read_mentions(path):
 		mapp[line[0]] = len(mapp)
 	return mentions,mapp
 
-entitiesList, entitiesD = read_mentions('olpbench/mapped_to_ids/entity_id_map.txt')
+entitiesList, entitiesD = read_mentions(args.data_dir+'/mapped_to_ids/entity_id_map.txt')
 
 def parse_prediction_line(line):
     input_line, pred_line = line.split('</s>')
@@ -65,7 +66,7 @@ if args.type == 'head' or args.type == 'tail':
         dump_line = input_line+'\t'+str(predicted_labels)
         dump_f.write(dump_line+'\n')
 
-    print('HITS1: ', hits1)
+    print('HITS1: ', (hits1/len(predicted_lines)))
     dump_f.close()
 else:
     print('Error! Code not yet written for combined')

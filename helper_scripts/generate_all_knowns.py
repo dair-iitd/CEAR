@@ -4,9 +4,9 @@
 """
 import argparse
 import os
+import sys
 from tqdm import tqdm
 import pickle
-
 
 def _update_all_knowns(file_path,em_map,rm_map,all_knowns_e2,all_knowns_e1):
 	lines = open(file_path).readlines()
@@ -41,8 +41,8 @@ def _update_all_knowns(file_path,em_map,rm_map,all_knowns_e2,all_knowns_e1):
 
 
 if __name__ == "__main__":
-	data_dir = "olpbench"
-	output_dir = "olpbench/all_knowns.pkl"
+	data_dir = sys.argv[1]
+	output_dir = data_dir+"/all_knowns.pkl"
 	train = "thorough"
 	val = "linked"
 
@@ -71,11 +71,9 @@ if __name__ == "__main__":
 	all_knowns_e2 = {} # tail prediction
 	all_knowns_e1 = {} # head prediction
 
-
 	print("parsing test...")
 	_update_all_knowns(os.path.join(data_dir,"test_data.txt"),em_map,rm_map,all_knowns_e2,all_knowns_e1)
 	# _update_all_knowns(os.path.join(args.data_dir,"test.txt"),em_map,rm_map,all_knowns_e2,all_knowns_e1)
-
 
 	print("parsing valid...")
 	_update_all_knowns(os.path.join(data_dir,"validation_data_"+val+".txt"),em_map,rm_map,all_knowns_e2,all_knowns_e1)
