@@ -58,7 +58,7 @@ for mode in ['train', 'valid', 'test']:
             #     eids.append(0)
             scores.append(score)
         finalD[(head_id, rel_id, tail_id)] = {}
-        finalD[(head_id, rel_id, tail_id)]['head-batch'] = {'index': eids, 'confidence': scores, 'bias': [], 
+        finalD[(head_id, rel_id, tail_id)]['tail-batch'] = {'index': eids, 'confidence': scores, 'bias': [tail_id], 
         'score': {'MR': example['rank'], 'HITS1': float(example['rank']==1), 
         'HITS3': float(example['rank']<=3), 'HITS10': float(example['rank']<=10)}}
 
@@ -74,7 +74,7 @@ for mode in ['train', 'valid', 'test']:
             # else:
             #     eids.append(0)
             scores.append(score)
-        finalD[(head_id, rel_id, tail_id)]['tail-batch'] = {'index': eids, 'confidence': scores, 'bias': [], 
+        finalD[(head_id, rel_id, tail_id)]['head-batch'] = {'index': eids, 'confidence': scores, 'bias': [head_id], 
         'score': {'MR': example['rank'], 'HITS1': float(example['rank']==1), 
         'HITS3': float(example['rank']<=3), 'HITS10': float(example['rank']<=10)}}
 
@@ -86,10 +86,3 @@ for mode in ['train', 'valid', 'test']:
         fp = 'test_data.pkl'
     pickle.dump(finalD, open(dir_+fp, 'wb'))
             
-
-# python convert_kbc.py --kge_output open_kbc_data/simkgc_en/test_data.pkl --kge_data_dir open_kbc_data/simkgc_en/ --output_dir open_kbc_data/simkgc_en/ --kbe_data_dir open_kbc_data/simkgc_en/ --output_file test_data.txt --model simkgc --entity_map --relation_map --filter --predictions --scores
-# python convert_kbc.py --kge_output open_kbc_data/simkgc_en/validation_data.pkl --kge_data_dir open_kbc_data/simkgc_en/ --output_dir open_kbc_data/simkgc_en/ --kbe_data_dir open_kbc_data/simkgc_en/ --output_file validation_data.txt --filter_val --predictions --scores_val --model simkgc_en
-# python convert_kbc.py --kge_output open_kbc_data/simkgc_en/train_data.pkl --kge_data_dir open_kbc_data/simkgc_en/ --output_dir open_kbc_data/simkgc_en/ --kbe_data_dir open_kbc_data/simkgc_en/ --output_file train_data.txt --predictions --model simkgc_en
-
-# python tokenize_pkl.py --inp open_kbc_data/simkgc_en/mapped_to_ids/entity_id_map.txt --model_str bert-base-cased
-# python tokenize_pkl.py --inp open_kbc_data/simkgc_en/mapped_to_ids/relation_id_map.txt --model_str bert-base-cased

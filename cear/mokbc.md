@@ -3,7 +3,7 @@ LANGUAGE='en'
 # Generating the data
 pythom mokbc_data.py open_kbc_data/simkgc_${LANGUAGE}
 
-python convert_kbc.py --kge_output open_kbc_data/simkgc_en/test_data.pkl --kge_data_dir open_kbc_data/simkgc_en/ --output_dir open_kbc_data/simkgc_en/ --kbe_data_dir open_kbc_data/simkgc_en/ --output_file test_data.txt --model simkgc --entity_map --relation_map --filter --predictions --scores
+python convert_kbc.py --kge_output open_kbc_data/simkgc_en/test_data.pkl --kge_data_dir open_kbc_data/simkgc_en/ --output_dir open_kbc_data/simkgc_en/ --kbe_data_dir open_kbc_data/simkgc_en/ --output_file test_data.txt --model simkgc_en --entity_map --relation_map --filter --predictions --scores
 python convert_kbc.py --kge_output open_kbc_data/simkgc_en/validation_data.pkl --kge_data_dir open_kbc_data/simkgc_en/ --output_dir open_kbc_data/simkgc_en/ --kbe_data_dir open_kbc_data/simkgc_en/ --output_file validation_data.txt --filter_val --predictions --scores_val --model simkgc_en
 python convert_kbc.py --kge_output open_kbc_data/simkgc_en/train_data.pkl --kge_data_dir open_kbc_data/simkgc_en/ --output_dir open_kbc_data/simkgc_en/ --kbe_data_dir open_kbc_data/simkgc_en/ --output_file train_data.txt --predictions --model simkgc_en
 
