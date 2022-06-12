@@ -43,7 +43,7 @@ os.system("mkdir -p {}".format(args.output_dir))
 def read_dict(file_path):
     outputD = dict()
     all_values = set()
-    with open(file_path, 'r') as fin:
+    with open(file_path, 'r', encoding='utf-8') as fin:
         for line in fin:
             key, value = line.strip().split('\t')
             i = 0
@@ -67,8 +67,8 @@ predictions = pickle.load(open(args.kge_output,'rb'))
 print('Loaded KGE Output...')
 
 if args.predictions:
-    output_head_f = open(args.output_dir+'/'+args.output_file+'.head_'+args.model+'.stage1','w')
-    output_tail_f = open(args.output_dir+'/'+args.output_file+'.tail_'+args.model+'.stage1','w')
+    output_head_f = open(args.output_dir+'/'+args.output_file+'.head_'+args.model+'.stage1','w', encoding='utf-8')
+    output_tail_f = open(args.output_dir+'/'+args.output_file+'.tail_'+args.model+'.stage1','w', encoding='utf-8')
 
 all_known_e2, all_known_e1, scoresD_tail, scoresD_head = {}, {}, {}, {}
 print('Processing KGE Output...')
@@ -239,7 +239,7 @@ if args.scores_val:
 
 if args.entity_map:
     os.makedirs(args.output_dir+'/mapped_to_ids', exist_ok=True)
-    f = open(args.output_dir+'/mapped_to_ids/entity_id_map.txt','w')
+    f = open(args.output_dir+'/mapped_to_ids/entity_id_map.txt','w', encoding='utf-8')
     print('Writing Entity Map to ',f.name)
     f.write('# token\tid\n')
     for index, id_ in kge_entity_index_id.items():
@@ -249,7 +249,7 @@ if args.entity_map:
 if args.relation_map:
     print('Relation Map...')
     os.makedirs(args.output_dir+'/mapped_to_ids', exist_ok=True)
-    f = open(args.output_dir+'/mapped_to_ids/relation_id_map.txt','w')
+    f = open(args.output_dir+'/mapped_to_ids/relation_id_map.txt','w', encoding='utf-8')
     print('Writing Relation Map to ', f.name)
     f.write('# token\tid\n')
     for index, id_ in kge_relation_index_id.items():

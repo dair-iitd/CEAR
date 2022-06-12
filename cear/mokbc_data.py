@@ -13,12 +13,12 @@ files = {'test': 'test_{}.json', 'train': 'train_{}.json', 'valid': 'val_{}.json
 entities = set()
 relations = set()
 for mode in ['train', 'valid', 'test']:
-    jfil = json.load(open(dir_+files[mode].format('forward')))
+    jfil = json.load(open(dir_+files[mode].format('forward'), encoding='utf-8'))
     for triple in jfil:
         entities.add(triple['head'])
         entities.add(triple['tail'])
         relations.add(triple['relation'])
-    jfil = json.load(open(dir_+files[mode].format('backward')))
+    jfil = json.load(open(dir_+files[mode].format('backward'), encoding='utf-8'))
     for triple in jfil:
         entities.add(triple['head'])
         entities.add(triple['tail'])
@@ -30,8 +30,10 @@ relations = list(relations)
 entityD = {}
 relationD = {}
 
-with open(dir_+'/entities.dict','w') as ent_f, open(dir_+'/entity2text.txt','w') as ent2txt_f,\
-    open(dir_+'/relations.dict','w') as rel_f, open(dir_+'/relation2text.txt','w') as rel2txt_f:
+# ipdb.set_trace()
+
+with open(dir_+'/entities.dict','w', encoding='utf-8') as ent_f, open(dir_+'/entity2text.txt','w', encoding='utf-8') as ent2txt_f,\
+    open(dir_+'/relations.dict','w', encoding='utf-8') as rel_f, open(dir_+'/relation2text.txt','w', encoding='utf-8') as rel2txt_f:
     for eid, entity in enumerate(entities):
         entityD[entity] = eid
         ent_f.write(str(eid)+'\t'+entity+'\n')
@@ -42,8 +44,8 @@ with open(dir_+'/entities.dict','w') as ent_f, open(dir_+'/entity2text.txt','w')
         rel2txt_f.write(relation+'\t'+relation+'\n')
 
 for mode in ['train', 'valid', 'test']:
-    jf = json.load(open(dir_+files[mode].format('forward')))
-    jb = json.load(open(dir_+files[mode].format('backward')))
+    jf = json.load(open(dir_+files[mode].format('forward'), encoding='utf-8'))
+    jb = json.load(open(dir_+files[mode].format('backward'), encoding='utf-8'))
 
     finalD = {}
     for example in jf:
