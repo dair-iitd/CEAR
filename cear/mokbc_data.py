@@ -12,17 +12,29 @@ files = {'test': 'test_{}.json', 'train': 'train_{}.json', 'valid': 'val_{}.json
 
 entities = set()
 relations = set()
+filteredD = dict()
 for mode in ['train', 'valid', 'test']:
     jfil = json.load(open(dir_+files[mode].format('forward'), encoding='utf-8'))
     for triple in jfil:
         entities.add(triple['head'])
         entities.add(triple['tail'])
         relations.add(triple['relation'])
+
+        if not (triple['head'], triple['relation']) in filteredD:
+            filteredD[(triple['head'], triple['relation'])] = []
+        filteredD[(triple['head'], triple['relation'])].append(triple['tail'])
+    
     jfil = json.load(open(dir_+files[mode].format('backward'), encoding='utf-8'))
     for triple in jfil:
         entities.add(triple['head'])
         entities.add(triple['tail'])
         relations.add(triple['relation'].lstrip('inverse').strip())
+
+        relation = triple['relation'].lstrip('inverse').strip()
+
+        if not (triple['head'], relation) in filteredD:
+            filteredD[(triple['head'], relation)] = []
+        filteredD[(triple['head'], relation)].append(triple['tail'])
 
 print('Total number of entities, relations = ', len(entities), len(relations))
 entities = list(entities)
@@ -60,7 +72,9 @@ for mode in ['train', 'valid', 'test']:
             #     eids.append(0)
             scores.append(score)
         finalD[(head_id, rel_id, tail_id)] = {}
-        finalD[(head_id, rel_id, tail_id)]['tail-batch'] = {'index': eids, 'confidence': scores, 'bias': [tail_id], 
+        # finalD[(head_id, rel_id, tail_id)]['tail-batch'] = {'index': eids, 'confidence': scores, 'bias': [tail_id], 
+        tail_bias = [entityD[elem] for elem in filteredD[(example['head'],example['relation'])]]
+        finalD[(head_id, rel_id, tail_id)]['tail-batch'] = {'index': eids, 'confidence': scores, 'bias': tail_bias, 
         'score': {'MR': example['rank'], 'HITS1': float(example['rank']==1), 
         'HITS3': float(example['rank']<=3), 'HITS10': float(example['rank']<=10)}}
 
@@ -76,7 +90,9 @@ for mode in ['train', 'valid', 'test']:
             # else:
             #     eids.append(0)
             scores.append(score)
-        finalD[(head_id, rel_id, tail_id)]['head-batch'] = {'index': eids, 'confidence': scores, 'bias': [head_id], 
+        # finalD[(head_id, rel_id, tail_id)]['head-batch'] = {'index': eids, 'confidence': scores, 'bias': [head_id], 
+        head_bias = [entityD[elem] for elem in filteredD[(example['head'], example['relation'].lstrip('inverse').strip())]]
+        finalD[(head_id, rel_id, tail_id)]['head-batch'] = {'index': eids, 'confidence': scores, 'bias': head_bias, 
         'score': {'MR': example['rank'], 'HITS1': float(example['rank']==1), 
         'HITS3': float(example['rank']<=3), 'HITS10': float(example['rank']<=10)}}
 

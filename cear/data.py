@@ -141,7 +141,7 @@ class KBCDatasetReader(DatasetReader):
 
         for inp_file in inp_files:
             self.hparams.task_type = 'head' if '.head_' in inp_file else 'tail'
-            for line in self.shard_iterable(open(inp_file, 'r')):
+            for line in self.shard_iterable(open(inp_file, 'r', encoding='utf-8')):
                 line_no += 1
                 fields = line.strip('\n').split('\t')
 
@@ -343,7 +343,7 @@ class KBCDatasetReader(DatasetReader):
                 e2_filtered_mentions = all_known.get((e1,r),[])
                 for sample in samples:
                     if mode=="train" and self.hparams.filter_train:
-                        if sample in e2_filtered_mentions:
+                        if self.em_dict[sample] in e2_filtered_mentions:
                             targets.append(1)
                         else:
                             targets.append(0)
@@ -601,7 +601,8 @@ class KBCDatasetReader(DatasetReader):
             # for okbc
             # all_alt_mentions_e2 = all_known.get((self.em_dict[e1],self.rm_dict[r]),[])
             # for closed kbc
-            e2_filtered_mentions = [self.em_dict[ak] for ak in all_known.get((e1,r),[])]
+            # e2_filtered_mentions = [self.em_dict[ak] for ak in all_known.get((e1,r),[])]
+            e2_filtered_mentions = all_known.get((e1,r),[])
 
             e2_alt_mentions_map = []
             for mention in e2_alt_mentions:
@@ -702,7 +703,7 @@ if __name__ == '__main__':
     # input_ft = torch.FloatTensor(ft.get_input_matrix()).cuda()
     ft = None
 
-    labels_set = set([l.strip('\n').split('\t')[2] for l in open('data/debug.txt', 'r').readlines()])
+    labels_set = set([l.strip('\n').split('\t')[2] for l in open('data/debug.txt', 'r', encoding='utf-8').readlines()])
     labels_dict = {v: i for v, i in zip(labels_set, range(len(labels_set)))}
 
     dataset_reader = KBCDatasetReader(args, ft, labels_dict, 0)

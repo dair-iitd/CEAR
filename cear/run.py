@@ -144,7 +144,7 @@ def test(hparams, checkpoint_callback, test_dataloader, labels_dataloader, model
     test_fp = hparams.save+'/logs/test.txt'
     if not os.path.exists(os.path.dirname(test_fp)):
         os.makedirs(os.path.dirname(test_fp), exist_ok=True)
-    test_f = open(hparams.save+'/logs/test.txt', 'w')
+    test_f = open(hparams.save+'/logs/test.txt', 'w', encoding='utf-8')
     trainer = Trainer(logger=logger, gpus=hparams.gpus)
 
     if not model:

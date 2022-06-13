@@ -119,8 +119,10 @@ for tuple_indx, tuple_ in enumerate(tqdm(predictions)):
         output_tail_f.write(e1_name+'\t'+r_name+'\t'+e2_name+'\t'+e1_name+'\t'+e2_name+'\t'+tail_results+'\n')
 
     if args.filter or args.filter_val:
-        tail_bias = [kbe_entity_id_name.get(kge_entity_index_id[str(p)],UNK_NAME) for p in predictions[tuple_]['tail-batch']['bias']]
-        head_bias = [kbe_entity_id_name.get(kge_entity_index_id[str(p)],UNK_NAME) for p in predictions[tuple_]['head-batch']['bias']]
+        # tail_bias = [kbe_entity_id_name.get(kge_entity_index_id[str(p)],UNK_NAME) for p in predictions[tuple_]['tail-batch']['bias']]
+        # head_bias = [kbe_entity_id_name.get(kge_entity_index_id[str(p)],UNK_NAME) for p in predictions[tuple_]['head-batch']['bias']]
+        tail_bias = predictions[tuple_]['tail-batch']['bias']
+        head_bias = predictions[tuple_]['head-batch']['bias']
         if (e1_name, r_name) in all_known_e2:
             all_known_e2[(e1_name, r_name)].extend(tail_bias)
             all_known_e2[(e1_name, r_name)] = list(set(all_known_e2[(e1_name, r_name)]))
@@ -140,9 +142,11 @@ for tuple_indx, tuple_ in enumerate(tqdm(predictions)):
         scoresD_tail[(e1_name, r_name, e2_name)] = tail_scores
 
     if args.performance:
-        ## Code for computing filtered confidence
-        tail_bias = [kbe_entity_id_name.get(kge_entity_index_id[str(p)],UNK_NAME) for p in predictions[tuple_]['tail-batch']['bias']]
-        head_bias = [kbe_entity_id_name.get(kge_entity_index_id[str(p)],UNK_NAME) for p in predictions[tuple_]['head-batch']['bias']]
+        # Code for computing filtered confidence
+        # tail_bias = [kbe_entity_id_name.get(kge_entity_index_id[str(p)],UNK_NAME) for p in predictions[tuple_]['tail-batch']['bias']]
+        # head_bias = [kbe_entity_id_name.get(kge_entity_index_id[str(p)],UNK_NAME) for p in predictions[tuple_]['head-batch']['bias']]
+        tail_bias = predictions[tuple_]['tail-batch']['bias']
+        head_bias = predictions[tuple_]['head-batch']['bias']
 
         tail_bias = list(set(all_known_e2[(e1_name, r_name)])-set([e2_name]))
         head_bias = list(set(all_known_e1[(e2_name, r_name)])-set([e1_name]))

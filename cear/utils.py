@@ -23,7 +23,7 @@ def get_tokens_map(path):
 		<END>: 2
 		...
 	"""
-	lines = open(path,'r').readlines()
+	lines = open(path,'r', encoding='utf-8').readlines()
 	token_map = {"<PAD>":0,"<INIT>":1,"<END>":2}
 	tokens = ["<PAD>","<INIT>","<END>"]
 	for line in tqdm(lines[1:],desc="Reading file for token map"):
@@ -37,7 +37,7 @@ def get_tokens_map(path):
 def read_mentions(path):
 	mapp = {}
 	mentions = []
-	lines = open(path,'r').readlines()
+	lines = open(path,'r', encoding='utf-8').readlines()
 	for line in tqdm(lines[1:]): 
 		line = line.strip().split("\t")
 		mentions.append(line[0])

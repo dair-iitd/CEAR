@@ -18,7 +18,7 @@ if args.model_str=="id":
     tokenizer = None
 else:   
     tokenizer = AutoTokenizer.from_pretrained(args.model_str, do_lower_case=False, use_fast=True, data_dir='data/pretrained_cache')
-f = open(args.inp)
+f = open(args.inp, encoding='utf-8')
 tokensD = dict()
 
 def clean(token_str):
