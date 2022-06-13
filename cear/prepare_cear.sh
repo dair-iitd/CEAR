@@ -8,7 +8,7 @@ python convert_kbc.py --kge_output ${DATA_PATH}/validation_data.pkl --kge_data_d
 
 python convert_kbc.py --kge_output ${DATA_PATH}/train_data.pkl --kge_data_dir ${DATA_PATH}/ --output_dir ${DATA_PATH}/ --kbe_data_dir ${DATA_PATH}/ --output_file train_data.txt --predictions --model simkgc_${LANGUAGE}
 
-# python tokenize_pkl.py --inp ${DATA_PATH}/mapped_to_ids/entity_id_map.txt --model_str bert-base-multilingual-cased
-# python tokenize_pkl.py --inp ${DATA_PATH}/mapped_to_ids/relation_id_map.txt --model_str bert-base-multilingual-cased
-python tokenize_pkl.py --inp ${DATA_PATH}/mapped_to_ids/entity_id_map.txt --model_str bert-base-cased
-python tokenize_pkl.py --inp ${DATA_PATH}/mapped_to_ids/relation_id_map.txt --model_str bert-base-cased
+python tokenize_pkl.py --inp ${DATA_PATH}/mapped_to_ids/entity_id_map.txt --model_str bert-base-multilingual-cased
+python tokenize_pkl.py --inp ${DATA_PATH}/mapped_to_ids/relation_id_map.txt --model_str bert-base-multilingual-cased
+# python tokenize_pkl.py --inp ${DATA_PATH}/mapped_to_ids/entity_id_map.txt --model_str bert-base-cased
+# python tokenize_pkl.py --inp ${DATA_PATH}/mapped_to_ids/relation_id_map.txt --model_str bert-base-cased
