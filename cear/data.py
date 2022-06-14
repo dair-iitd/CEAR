@@ -293,9 +293,10 @@ class KBCDatasetReader(DatasetReader):
                 samples_index = [self.em_dict[sample] for sample in samples]
 
             if self.hparams.shuffle:
-                temp = list(zip(samples_index, samples))
-                random.shuffle(temp)
-                samples_index, samples = zip(*temp)
+                if random.randrange(100) < 50:
+                    temp = list(zip(samples_index, samples))
+                    random.shuffle(temp)
+                    samples_index, samples = zip(*temp)
             elif self.hparams.decreasing_order:
                 samples_index = samples_index[::-1]
                 samples = samples[::-1]
